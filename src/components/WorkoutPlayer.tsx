@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Pause, SkipForward, SkipBack, X, Award, Flame, Timer, CheckCircle2, Volume2, VolumeX, Dumbbell } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, X, Award, Flame, Timer, CheckCircle2, Volume2, VolumeX, Dumbbell, Sparkles } from 'lucide-react';
 import { Routine, Exercise } from '../types';
 
 interface WorkoutPlayerProps {
@@ -40,10 +40,32 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
   const [totalSecsCompleted, setTotalSecsCompleted] = useState(0);
   const [completedExerciseIds, setCompletedExerciseIds] = useState<string[]>([]);
 
+  // XP accumulation rewards states & effect
+  const [xpDisplayed, setXpDisplayed] = useState(0);
+  const [xpGainAmount, setXpGainAmount] = useState<number | null>(null);
+
+  const currentXp = Math.max(
+    0,
+    Math.round((totalSecsCompleted / 60) * 10 + completedExerciseIds.length * 5)
+  );
+
+  useEffect(() => {
+    if (currentXp > xpDisplayed) {
+      const diff = currentXp - xpDisplayed;
+      setXpGainAmount(diff);
+      setXpDisplayed(currentXp);
+      const timer = setTimeout(() => {
+        setXpGainAmount(null);
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [currentXp, xpDisplayed]);
+
   const currentExercise: Exercise | undefined = routine.exercises[exerciseIndex];
 
   // Keep ref to avoid closure issues in intervals
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const activeStepRef = useRef<HTMLDivElement | null>(null);
 
   // Speech and Audio synthesis helpers
   const speakText = (text: string) => {
@@ -263,6 +285,22 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
   const progressPct = currentStep === 'active' ? (timeLeft / totalDuration) : 1;
   const strokeDashoffset = 2 * Math.PI * 90 * (1 - progressPct);
 
+  // Derived properties for active instruction steps
+  const elapsed = Math.max(0, totalDuration - timeLeft);
+  const instructionsCount = currentExercise && currentExercise.instructions ? currentExercise.instructions.length : 1;
+  const stepDuration = totalDuration / instructionsCount;
+  const activeInstructionIndex = Math.min(
+    instructionsCount - 1,
+    Math.floor(elapsed / stepDuration)
+  );
+
+  // Scrolling active step card into view
+  useEffect(() => {
+    if (activeStepRef.current) {
+      activeStepRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [activeInstructionIndex]);
+
   return (
     <div className="fixed inset-0 bg-slate-950 text-white z-50 flex flex-col justify-between p-6 md:p-10 transition-all duration-300 overflow-hidden">
       {/* Immersive Atmospheric Spheres */}
@@ -276,13 +314,34 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
 
       <div className="relative z-10 flex flex-col justify-between h-full w-full">
       {/* Header */}
-      <div className="flex justify-between items-center w-full">
+      <div className="flex justify-between items-center w-full border-b border-slate-900 pb-4">
         <div>
-          <span className="text-xs font-bold uppercase tracking-widest text-indigo-400">
+          <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400/80 bg-indigo-950/30 border border-indigo-900/30 px-2 py-0.5 rounded">
             {routine.difficulty} Routine
           </span>
-          <h2 className="text-xl md:text-2xl font-bold truncate max-w-xs sm:max-w-md">{routine.title}</h2>
+          <h2 className="text-lg md:text-2xl font-extrabold truncate max-w-xs sm:max-w-md mt-1.5">{routine.title}</h2>
         </div>
+
+        {/* Real-time XP accumulation meter */}
+        {['intro', 'active', 'rest'].includes(currentStep) && (
+          <div className="flex items-center space-x-2 bg-slate-900 border border-slate-800 px-3.5 py-1.5 rounded-full relative z-30 shadow-lg shadow-indigo-950/20">
+            <div className="relative flex items-center justify-center">
+              <Award className="w-4 h-4 text-indigo-400 animate-bounce" />
+              <div className="absolute inset-0 bg-indigo-500/20 rounded-full blur-sm scale-150 animate-pulse" />
+            </div>
+            <span className="text-sm font-black font-mono text-indigo-400">
+              +{currentXp} XP
+            </span>
+            <span className="text-[9px] text-indigo-300 bg-indigo-950/80 border border-indigo-900/40 px-1.5 py-0.5 rounded-md hidden md:inline-block font-extrabold tracking-wide uppercase">
+              +1 XP / 6s
+            </span>
+            {xpGainAmount !== null && (
+              <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-emerald-400 font-black text-sm animate-floatUp z-50 pointer-events-none drop-shadow-[0_0_8px_rgba(52,211,153,0.4)]">
+                +{xpGainAmount} XP!
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex items-center space-x-3">
           <button
@@ -402,32 +461,83 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
 
         {/* STEP: Active exercise playing */}
         {currentStep === 'active' && currentExercise && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full max-w-5xl items-center px-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full max-w-5xl items-center px-4 relative z-20">
             
             {/* Exercise Instructions Card */}
-            <div className="bg-slate-900/60 border border-slate-800 p-6 sm:p-8 rounded-2xl space-y-6">
+            <div className="bg-slate-900/60 border border-slate-800/80 p-6 sm:p-8 rounded-2xl space-y-6 backdrop-blur-xl">
               <div>
-                <span className="px-3 py-1 text-xs font-semibold rounded-full bg-indigo-950 border border-indigo-800 text-indigo-300">
-                  Step {exerciseIndex + 1} of {routine.exercises.length}
-                </span>
-                <h1 className="text-3xl md:text-4xl font-extrabold mt-3">{currentExercise.name}</h1>
-                <p className="text-slate-400 text-sm mt-2 leading-relaxed">{currentExercise.description}</p>
+                <div className="flex items-center justify-between">
+                  <span className="px-3 py-1 text-xs font-black rounded-full bg-indigo-950/65 border border-indigo-900 text-indigo-300 uppercase tracking-wider">
+                    Exercise {exerciseIndex + 1} of {routine.exercises.length}
+                  </span>
+                  {currentExercise.type === 'stretch' && (
+                    <span className="flex items-center space-x-1 px-3 py-1 text-xs font-black rounded-full bg-purple-950/65 border border-purple-900 text-purple-300 uppercase tracking-wider">
+                      <Sparkles className="w-3.5 h-3.5 text-purple-400 animate-spin" style={{ animationDuration: '4s' }} />
+                      <span>Stretching</span>
+                    </span>
+                  )}
+                  {currentExercise.type === 'workout' && (
+                    <span className="flex items-center space-x-1 px-3 py-1 text-xs font-black rounded-full bg-rose-950/65 border border-rose-900 text-rose-300 uppercase tracking-wider">
+                      <Flame className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
+                      <span>Workout</span>
+                    </span>
+                  )}
+                </div>
+                <h1 className="text-2xl md:text-3xl font-black mt-4 text-white tracking-tight">{currentExercise.name}</h1>
+                <p className="text-slate-405 text-xs sm:text-sm mt-2 leading-relaxed">{currentExercise.description}</p>
               </div>
 
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
-                  How to perform:
+              <div className="space-y-3.5 border-t border-slate-850 pt-4">
+                <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                  <span>Guided Instructions:</span>
+                  <span className="text-[10px] text-indigo-400 font-bold bg-indigo-950/50 border border-indigo-900/40 px-2 py-0.5 rounded-full">
+                    Step {activeInstructionIndex + 1} / {instructionsCount}
+                  </span>
                 </h3>
-                <ul className="space-y-2.5">
-                  {currentExercise.instructions.map((inst, index) => (
-                    <li key={index} className="flex items-start text-sm text-slate-200">
-                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-900/50 border border-indigo-700/60 text-indigo-300 text-xs font-bold flex items-center justify-center mr-3 mt-0.5">
-                        {index + 1}
-                      </span>
-                      <span>{inst}</span>
-                    </li>
-                  ))}
-                </ul>
+                
+                <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+                  {currentExercise.instructions.map((inst, index) => {
+                    const isActive = index === activeInstructionIndex;
+                    const isCompleted = index < activeInstructionIndex;
+                    return (
+                      <div
+                        key={index}
+                        ref={isActive ? activeStepRef : null}
+                        className={`p-3 rounded-xl border transition-all duration-300 flex items-start space-x-3.5 ${
+                          isActive
+                            ? 'bg-gradient-to-r from-indigo-950/45 to-purple-950/30 border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.15)] scale-[1.01] opacity-100'
+                            : isCompleted
+                            ? 'bg-slate-950/30 border-emerald-950/30 opacity-55'
+                            : 'bg-slate-950/10 border-slate-900/40 opacity-35'
+                        }`}
+                      >
+                        <div className="flex-shrink-0 mt-0.5">
+                          {isCompleted ? (
+                            <div className="w-5 h-5 rounded-full bg-emerald-950 border border-emerald-500 flex items-center justify-center text-emerald-400">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            </div>
+                          ) : isActive ? (
+                            <div className="w-5 h-5 rounded-full bg-indigo-950 border border-indigo-450 flex items-center justify-center text-indigo-350 relative">
+                              <span className="absolute inset-0 rounded-full bg-indigo-400/20 animate-ping" />
+                              <span className="w-2 h-2 rounded-full bg-indigo-405" />
+                            </div>
+                          ) : (
+                            <div className="w-5 h-5 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 text-[10px] font-bold">
+                              {index + 1}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <p className={`text-xs sm:text-sm leading-relaxed transition-colors ${
+                            isActive ? 'text-white font-semibold' : 'text-slate-350'
+                          }`}>
+                            {inst}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
@@ -436,8 +546,8 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
               
               {/* Dumbbell Weight Pill Indicator */}
               {currentExercise.needsWeight && (
-                <div className="px-4 py-2 rounded-full bg-indigo-950/60 border border-indigo-800 text-xs font-extrabold text-indigo-300 flex items-center space-x-2 shadow-lg shadow-indigo-950/30">
-                  <Dumbbell className="w-4.5 h-4.5" />
+                <div className="px-4 py-2 rounded-full bg-indigo-950/60 border border-indigo-800 text-xs font-extrabold text-indigo-305 flex items-center space-x-2 shadow-lg shadow-indigo-950/30 relative">
+                  <Dumbbell className="w-4 h-4 text-indigo-400 animate-pulse" />
                   <span>Dumbbells: {weights[currentExercise.id]} lbs</span>
                 </div>
               )}
@@ -447,6 +557,41 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
                 <div className={`absolute inset-4 rounded-full bg-indigo-550/10 blur-xl transition-all duration-1000 ${
                   isPaused ? 'scale-95 opacity-40' : 'scale-105 opacity-100 animate-pulse'
                 }`} />
+
+                {/* Concentric Breathing Halos (Kinetic Loops) */}
+                <div 
+                  className="absolute inset-8 rounded-full border border-indigo-500/10 animate-ping pointer-events-none z-0" 
+                  style={{ animationDuration: currentExercise.type === 'stretch' ? '6s' : '3s' }} 
+                />
+                <div 
+                  className="absolute inset-16 rounded-full border border-purple-500/25 animate-pulse pointer-events-none z-0" 
+                  style={{ animationDuration: currentExercise.type === 'stretch' ? '4s' : '2s' }} 
+                />
+                
+                {/* Abstract Kinetic Rings inside the Timer */}
+                <div className="absolute inset-12 pointer-events-none select-none opacity-45 z-0">
+                  <svg className={`w-full h-full ${isPaused ? '' : 'animate-spin'}`} style={{ animationDuration: currentExercise.type === 'stretch' ? '25s' : '12s' }} viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="42" stroke="url(#kineticGrad)" strokeWidth="0.5" strokeDasharray="4 12" fill="none" />
+                    <circle cx="50" cy="50" r="32" stroke="url(#kineticGrad2)" strokeWidth="0.75" strokeDasharray="25 8" fill="none" />
+                    <circle cx="50" cy="50" r="22" stroke="rgba(129, 140, 248, 0.1)" strokeWidth="1" fill="none" />
+                    {/* Floating nodes along the rings */}
+                    <circle cx="50" cy="8" r="2" fill="#818cf8" />
+                    <circle cx="50" cy="92" r="2.5" fill="#c084fc" />
+                    <circle cx="18" cy="50" r="1.5" fill="#818cf8" />
+                    <circle cx="82" cy="50" r="2" fill="#6366f1" />
+                  </svg>
+                </div>
+
+                {/* Breathing Core */}
+                <div 
+                  className={`absolute w-36 h-36 rounded-full bg-gradient-to-tr from-indigo-600/5 to-purple-600/5 border border-indigo-500/5 flex items-center justify-center transition-transform duration-1000 z-0 ${
+                    isPaused ? 'scale-100' : 'animate-pulse'
+                  }`}
+                  style={{ 
+                    animationDuration: currentExercise.type === 'stretch' ? '6s' : '3.5s',
+                  }}
+                />
+
                 <svg width="100%" height="100%" viewBox="0 0 200 200" className="transform -rotate-90 relative z-10">
                   <circle cx="100" cy="100" r="90" fill="transparent" stroke="#1e293b" strokeWidth="8" />
                   <circle
@@ -466,10 +611,18 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
                       <stop offset="0%" stopColor="#818cf8" />
                       <stop offset="100%" stopColor="#6366f1" />
                     </linearGradient>
+                    <linearGradient id="kineticGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#818cf8" stopOpacity="0.8" />
+                      <stop offset="100%" stopColor="#c084fc" stopOpacity="0.2" />
+                    </linearGradient>
+                    <linearGradient id="kineticGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#c084fc" stopOpacity="0.8" />
+                      <stop offset="100%" stopColor="#6366f1" stopOpacity="0.2" />
+                    </linearGradient>
                   </defs>
                 </svg>
 
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center z-20">
                   <span className="text-6xl md:text-7xl font-black font-mono leading-none">
                     {timeLeft}
                   </span>
