@@ -264,7 +264,17 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
   const strokeDashoffset = 2 * Math.PI * 90 * (1 - progressPct);
 
   return (
-    <div className="fixed inset-0 bg-slate-950 text-white z-50 flex flex-col justify-between p-6 md:p-10 transition-all duration-300">
+    <div className="fixed inset-0 bg-slate-950 text-white z-50 flex flex-col justify-between p-6 md:p-10 transition-all duration-300 overflow-hidden">
+      {/* Immersive Atmospheric Spheres */}
+      <div className="absolute -top-12 -left-12 w-96 h-96 bg-indigo-650/15 rounded-full blur-3xl pointer-events-none z-0 animate-pulse" />
+      <div className="absolute -bottom-12 -right-12 w-96 h-96 bg-rose-650/10 rounded-full blur-3xl pointer-events-none z-0" />
+      
+      {/* Interactive content containers wrapped in z-10 */}
+      <div className="absolute inset-0 z-10 flex flex-col justify-between p-6 md:p-10 pointer-events-none select-none">
+        <div className="w-full h-full pointer-events-auto" />
+      </div>
+
+      <div className="relative z-10 flex flex-col justify-between h-full w-full">
       {/* Header */}
       <div className="flex justify-between items-center w-full">
         <div>
@@ -432,8 +442,12 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
                 </div>
               )}
 
-              <div className="relative w-64 h-64 md:w-72 md:h-72">
-                <svg width="100%" height="100%" viewBox="0 0 200 200" className="transform -rotate-90">
+              <div className="relative w-64 h-64 md:w-72 md:h-72 flex items-center justify-center">
+                {/* Glowing Aura Backdrop */}
+                <div className={`absolute inset-4 rounded-full bg-indigo-550/10 blur-xl transition-all duration-1000 ${
+                  isPaused ? 'scale-95 opacity-40' : 'scale-105 opacity-100 animate-pulse'
+                }`} />
+                <svg width="100%" height="100%" viewBox="0 0 200 200" className="transform -rotate-90 relative z-10">
                   <circle cx="100" cy="100" r="90" fill="transparent" stroke="#1e293b" strokeWidth="8" />
                   <circle
                     cx="100"
@@ -649,6 +663,7 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

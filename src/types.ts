@@ -38,4 +38,6 @@ export interface UserProfile {
   dailyMinutesGoal: number;
   dailyStretchesGoal: number;
   weightKg: number;
+  unlockedBadges?: string[];
 }
+

@@ -7,6 +7,7 @@ import RoutineBuilder from './components/RoutineBuilder';
 import HistoryLog from './components/HistoryLog';
 import ProfileView from './components/ProfileView';
 import ActivityRings from './components/ActivityRings';
+import CelebrationModal from './components/CelebrationModal';
 
 import { predefinedRoutines } from './data/routines';
 import { Routine, WorkoutLog, UserProfile } from './types';
@@ -30,6 +31,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<string>('home');
   const [activeWorkout, setActiveWorkout] = useState<Routine | null>(null);
   const [dbConnected, setDbConnected] = useState<boolean>(false);
+  const [newlyUnlockedBadges, setNewlyUnlockedBadges] = useState<string[] | null>(null);
 
   // Database / Local Cache state
   const [logs, setLogs] = useState<WorkoutLog[]>(() => {
@@ -154,6 +156,58 @@ export default function App() {
   const todayStats = getTodayStats();
   const activeStreak = calculateStreak(logs);
 
+  const checkBadgesToUnlock = (
+    newLog: WorkoutLog,
+    currentProfile: UserProfile,
+    streak: number
+  ) => {
+    const newlyUnlocked: string[] = [];
+    const currentUnlocked = currentProfile.unlockedBadges || [];
+
+    const addBadge = (id: string) => {
+      if (!currentUnlocked.includes(id) && !newlyUnlocked.includes(id)) {
+        newlyUnlocked.push(id);
+      }
+    };
+
+    // 1. First Flow
+    addBadge('first_flow');
+
+    // 2. Iron Grip (dumbbell master)
+    if (newLog.weightsUsed && Object.keys(newLog.weightsUsed).length > 0) {
+      addBadge('dumbbell_master');
+    }
+
+    // 3. Consistency Hero (streak >= 3)
+    if (streak >= 3) {
+      addBadge('streak_3');
+    }
+
+    // 4. Calorie Incinerator (cumulative cals >= 500)
+    const totalCals = logs.reduce((sum, log) => sum + log.caloriesBurned, 0) + newLog.caloriesBurned;
+    if (totalCals >= 500) {
+      addBadge('calories_500');
+    }
+
+    // 5. Midnight Warrior (after 9:00 PM / 21:00)
+    const logHour = new Date(newLog.date).getHours();
+    if (logHour >= 21 || logHour < 4) {
+      addBadge('night_owl');
+    }
+
+    // 6. Dawn Patrol (before 8:00 AM)
+    if (logHour >= 4 && logHour < 8) {
+      addBadge('early_bird');
+    }
+
+    // 7. Custom Pioneer
+    if (newLog.routineId.startsWith('custom_')) {
+      addBadge('custom_pioneer');
+    }
+
+    return newlyUnlocked;
+  };
+
   // Handlers
   const handleWorkoutComplete = async (stats: {
     duration: number;
@@ -177,13 +231,22 @@ export default function App() {
       weightsUsed: stats.weightsUsed
     };
 
+    // Calculate badges
+    const badgesToUnlock = checkBadgesToUnlock(newLog, profile, activeStreak);
+    const xpBonus = badgesToUnlock.length * 50;
+
     // Optimistic UI updates
     setLogs((prev) => [newLog, ...prev]);
     const updatedProfile = {
       ...profile,
-      xp: profile.xp + stats.xpEarned
+      xp: profile.xp + stats.xpEarned + xpBonus,
+      unlockedBadges: [...(profile.unlockedBadges || []), ...badgesToUnlock]
     };
     setProfile(updatedProfile);
+
+    if (badgesToUnlock.length > 0) {
+      setNewlyUnlockedBadges(badgesToUnlock);
+    }
 
     // Save to Neon Database
     try {
@@ -491,6 +554,14 @@ export default function App() {
 
       {/* Global Tab Navbar */}
       <Navbar activeTab={activeTab} onTabChange={setActiveTab} />
+
+      {/* Achievement Unlocked Celebration Popup Overlay */}
+      {newlyUnlockedBadges && (
+        <CelebrationModal
+          badgeIds={newlyUnlockedBadges}
+          onClose={() => setNewlyUnlockedBadges(null)}
+        />
+      )}
     </div>
   );
 }

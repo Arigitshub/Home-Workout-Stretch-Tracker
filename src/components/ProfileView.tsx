@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { User, Award, Flame, Timer, TrendingUp, Settings, Edit3, Check } from 'lucide-react';
 import { UserProfile, WorkoutLog } from '../types';
+import { badgesList } from '../data/badges';
 
 interface ProfileViewProps {
   profile: UserProfile;
@@ -230,6 +231,47 @@ export default function ProfileView({ profile, logs, onUpdateProfile }: ProfileV
             </div>
           </div>
         )}
+      </div>
+
+      {/* Achievements section */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-150 dark:border-gray-700/60 p-6 shadow-sm">
+        <h3 className="font-bold text-gray-855 dark:text-white flex items-center mb-4 border-b border-gray-100 dark:border-gray-700/60 pb-3">
+          <Award className="w-5 h-5 text-amber-500 mr-2" />
+          Achievement Badges Unlocked ({profile.unlockedBadges?.length || 0} / {badgesList.length})
+        </h3>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          {badgesList.map((badge) => {
+            const isUnlocked = profile.unlockedBadges?.includes(badge.id);
+            const Icon = badge.icon;
+
+            return (
+              <div
+                key={badge.id}
+                className={`p-4 rounded-2xl border flex items-center space-x-3 transition-all duration-300 ${
+                  isUnlocked
+                    ? 'bg-slate-55 dark:bg-slate-900/25 border-gray-200 dark:border-gray-700/80 shadow-xs'
+                    : 'bg-gray-50/50 dark:bg-slate-900/5 border-dashed border-gray-200 dark:border-gray-800/80 opacity-50'
+                }`}
+              >
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white flex-shrink-0 shadow-xs bg-gradient-to-br ${
+                  isUnlocked ? badge.colorClass : 'from-slate-400 to-slate-500 grayscale'
+                }`}>
+                  <Icon className="w-5.5 h-5.5" />
+                </div>
+                
+                <div className="min-w-0">
+                  <h4 className={`text-xs font-black truncate ${isUnlocked ? 'text-gray-800 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
+                    {badge.name}
+                  </h4>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-450 line-clamp-1 mt-0.5">
+                    {isUnlocked ? badge.description : badge.requirement}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Fitness tips card */}

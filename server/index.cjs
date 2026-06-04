@@ -36,14 +36,20 @@ async function initDb() {
         xp INTEGER DEFAULT 0,
         daily_minutes_goal INTEGER DEFAULT 15,
         daily_stretches_goal INTEGER DEFAULT 1,
-        weight_kg INTEGER DEFAULT 70
+        weight_kg INTEGER DEFAULT 70,
+        unlocked_badges JSONB DEFAULT '[]'::jsonb
       );
+    `);
+
+    // Retroactively add column to existing user tables
+    await client.query(`
+      ALTER TABLE user_profile ADD COLUMN IF NOT EXISTS unlocked_badges JSONB DEFAULT '[]'::jsonb;
     `);
 
     // Insert default profile if not exists
     await client.query(`
-      INSERT INTO user_profile (id, name, xp, daily_minutes_goal, daily_stretches_goal, weight_kg)
-      VALUES (1, 'Champion Athlete', 0, 15, 1, 70)
+      INSERT INTO user_profile (id, name, xp, daily_minutes_goal, daily_stretches_goal, weight_kg, unlocked_badges)
+      VALUES (1, 'Champion Athlete', 0, 15, 1, 70, '[]'::jsonb)
       ON CONFLICT (id) DO NOTHING;
     `);
 
@@ -89,7 +95,7 @@ async function initDb() {
 // 1. Profile Route Handlers
 app.get('/api/profile', async (req, res) => {
   try {
-    const result = await pool.query('SELECT name, xp, daily_minutes_goal as "dailyMinutesGoal", daily_stretches_goal as "dailyStretchesGoal", weight_kg as "weightKg" FROM user_profile WHERE id = 1');
+    const result = await pool.query('SELECT name, xp, daily_minutes_goal as "dailyMinutesGoal", daily_stretches_goal as "dailyStretchesGoal", weight_kg as "weightKg", unlocked_badges as "unlockedBadges" FROM user_profile WHERE id = 1');
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Profile not found' });
     }
@@ -101,14 +107,14 @@ app.get('/api/profile', async (req, res) => {
 });
 
 app.put('/api/profile', async (req, res) => {
-  const { name, xp, dailyMinutesGoal, dailyStretchesGoal, weightKg } = req.body;
+  const { name, xp, dailyMinutesGoal, dailyStretchesGoal, weightKg, unlockedBadges } = req.body;
   try {
     const result = await pool.query(
       `UPDATE user_profile 
-       SET name = $1, xp = $2, daily_minutes_goal = $3, daily_stretches_goal = $4, weight_kg = $5 
+       SET name = $1, xp = $2, daily_minutes_goal = $3, daily_stretches_goal = $4, weight_kg = $5, unlocked_badges = $6 
        WHERE id = 1 
-       RETURNING name, xp, daily_minutes_goal as "dailyMinutesGoal", daily_stretches_goal as "dailyStretchesGoal", weight_kg as "weightKg"`,
-      [name, xp, dailyMinutesGoal, dailyStretchesGoal, weightKg]
+       RETURNING name, xp, daily_minutes_goal as "dailyMinutesGoal", daily_stretches_goal as "dailyStretchesGoal", weight_kg as "weightKg", unlocked_badges as "unlockedBadges"`,
+      [name, xp, dailyMinutesGoal, dailyStretchesGoal, weightKg, JSON.stringify(unlockedBadges || [])]
     );
     res.json(result.rows[0]);
   } catch (err) {
