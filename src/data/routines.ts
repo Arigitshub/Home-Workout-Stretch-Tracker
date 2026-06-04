@@ -310,6 +310,21 @@ export const exerciseCatalog: Exercise[] = [
     weightLbs: 10
   },
   {
+    id: 'db_squats',
+    name: 'Dumbbell Squats',
+    duration: 45,
+    description: 'Squat exercise performed with dumbbells held at your sides to build lower body strength.',
+    instructions: [
+      'Stand with feet shoulder-width apart, holding dumbbells at your sides.',
+      'Keep your chest high, shoulder blades back, and core engaged.',
+      'Lower your hips back and bend knees to drop into a squat.',
+      'Drive through your heels to return to standing, squeezing your glutes at the top.'
+    ],
+    type: 'workout',
+    needsWeight: true,
+    weightLbs: 10
+  },
+  {
     id: 'db_goblet_squats',
     name: 'Dumbbell Goblet Squats',
     duration: 45,
