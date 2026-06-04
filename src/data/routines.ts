@@ -368,6 +368,125 @@ export const exerciseCatalog: Exercise[] = [
     type: 'workout',
     needsWeight: true,
     weightLbs: 10
+  },
+  {
+    id: 'db_lunges',
+    name: 'Dumbbell Walking Lunges',
+    duration: 40,
+    description: 'A great unilateral lower-body movement targeting quads, hamstrings, and stability.',
+    instructions: [
+      'Hold dumbbells at your sides, stand tall with feet hip-width apart.',
+      'Step forward with your right leg, lowering your hips until both knees are bent at 90 degrees.',
+      'Push off with your right foot and step forward with the left foot to lunge.',
+      'Maintain an upright torso and keep your knees aligned.'
+    ],
+    type: 'workout',
+    needsWeight: true,
+    weightLbs: 10
+  },
+  {
+    id: 'db_deadlifts',
+    name: 'Dumbbell Romanian Deadlifts',
+    duration: 45,
+    description: 'Targets the posterior chain, including the hamstrings, glutes, and lower back.',
+    instructions: [
+      'Stand with feet hip-width apart, holding dumbbells in front of your thighs.',
+      'Hinge at your hips, sending them backward while keeping your back completely flat.',
+      'Lower the weights along your shins until you feel a stretch in your hamstrings.',
+      'Drive your hips forward, squeezing your glutes to return to standing.'
+    ],
+    type: 'workout',
+    needsWeight: true,
+    weightLbs: 10
+  },
+  {
+    id: 'db_lateral_raises',
+    name: 'Dumbbell Lateral Raises',
+    duration: 35,
+    description: 'Isolation exercise targeting the lateral deltoids to build shoulder width.',
+    instructions: [
+      'Stand tall holding dumbbells at your sides, palms facing inward.',
+      'Keep a slight bend in your elbows and raise your arms out to the sides.',
+      'Lift until your arms are parallel to the floor (shoulder height).',
+      'Lower the weights slowly back to the starting position.'
+    ],
+    type: 'workout',
+    needsWeight: true,
+    weightLbs: 10
+  },
+  {
+    id: 'db_triceps_kickbacks',
+    name: 'Dumbbell Triceps Kickbacks',
+    duration: 40,
+    description: 'Isolation exercise focusing on the back of the arms (triceps).',
+    instructions: [
+      'Hold a dumbbell in each hand, bend at the hips, keeping your back flat.',
+      'Pull your elbows up high so your upper arms are parallel to your torso.',
+      'Keeping your elbows locked in place, extend your arms straight back.',
+      'Squeeze the triceps at the peak, then slowly return to 90 degrees.'
+    ],
+    type: 'workout',
+    needsWeight: true,
+    weightLbs: 10
+  },
+  {
+    id: 'db_hammer_curls',
+    name: 'Dumbbell Hammer Curls',
+    duration: 40,
+    description: 'Bicep exercise targeting the brachialis and forearm muscles for arm thickness.',
+    instructions: [
+      'Stand tall holding dumbbells at your sides, palms facing each other (neutral grip).',
+      'Keep your elbows pinned to your sides and curl the weights up.',
+      'Squeeze your biceps at the top, then slowly lower to full extension.'
+    ],
+    type: 'workout',
+    needsWeight: true,
+    weightLbs: 10
+  },
+  {
+    id: 'db_chest_flyes',
+    name: 'Dumbbell Floor Chest Flyes',
+    duration: 40,
+    description: 'Isolation exercise performed on the floor to stretch and strengthen chest fibers.',
+    instructions: [
+      'Lie flat on your back on the floor, knees bent and feet flat.',
+      'Hold dumbbells directly above your chest, palms facing each other.',
+      'With a slight bend in your elbows, open your arms wide to the sides.',
+      'Lower until your upper arms touch the floor, then squeeze chest to bring weights back together.'
+    ],
+    type: 'workout',
+    needsWeight: true,
+    weightLbs: 10
+  },
+  {
+    id: 'db_calf_raises',
+    name: 'Dumbbell Standing Calf Raises',
+    duration: 45,
+    description: 'Strengthens and builds endurance in the gastrocnemius and soleus calf muscles.',
+    instructions: [
+      'Stand tall holding dumbbells at your sides.',
+      'Set feet hip-width apart and lift up onto the balls of your feet.',
+      'Squeeze your calves at the peak of the lift for 1 second.',
+      'Lower slowly back to the ground.'
+    ],
+    type: 'workout',
+    needsWeight: true,
+    weightLbs: 10
+  },
+  {
+    id: 'db_renegade_rows',
+    name: 'Dumbbell Renegade Rows',
+    duration: 45,
+    description: 'Advanced compound core and back exercise performed in a push-up position.',
+    instructions: [
+      'Start in a push-up position with hands holding the dumbbell handles on the floor.',
+      'Keep your feet set wide to maintain hip stability.',
+      'Row one dumbbell up to your ribs, pulling with your back and stabilizing with your core.',
+      'Lower it with control and repeat the row on the opposite side.'
+    ],
+    type: 'workout',
+    needsWeight: true,
+    weightLbs: 10
   }
 ];
 
@@ -476,6 +595,50 @@ export const predefinedRoutines: Routine[] = [
       { ...exerciseCatalog.find(e => e.id === 'db_rows')!, duration: 45, weightLbs: 10 },
       { ...exerciseCatalog.find(e => e.id === 'db_bicep_curls')!, duration: 40, weightLbs: 10 },
       { ...exerciseCatalog.find(e => e.id === 'db_chest_press')!, duration: 40, weightLbs: 10 }
+    ]
+  },
+  {
+    id: 'db_lower_body',
+    title: 'Dumbbell Leg Blast',
+    description: 'Develop lower body power, leg definition, and glute activation with these targeted dumbbell movements.',
+    duration: '3 min',
+    difficulty: 'Intermediate',
+    image: 'https://images.unsplash.com/photo-1434608519344-49d77a699e1d?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
+    exercises: [
+      { ...exerciseCatalog.find(e => e.id === 'db_squats')!, duration: 45, weightLbs: 10 },
+      { ...exerciseCatalog.find(e => e.id === 'db_lunges')!, duration: 40, weightLbs: 10 },
+      { ...exerciseCatalog.find(e => e.id === 'db_deadlifts')!, duration: 45, weightLbs: 10 },
+      { ...exerciseCatalog.find(e => e.id === 'db_calf_raises')!, duration: 45, weightLbs: 10 }
+    ]
+  },
+  {
+    id: 'db_upper_body',
+    title: 'Dumbbell Upper Sculpt',
+    description: 'A comprehensive upper-body routine using dumbbells to tone your arms, chest, shoulders, and back.',
+    duration: '4 min',
+    difficulty: 'Advanced',
+    image: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
+    exercises: [
+      { ...exerciseCatalog.find(e => e.id === 'db_chest_press')!, duration: 40, weightLbs: 10 },
+      { ...exerciseCatalog.find(e => e.id === 'db_rows')!, duration: 45, weightLbs: 10 },
+      { ...exerciseCatalog.find(e => e.id === 'db_shoulder_press')!, duration: 40, weightLbs: 10 },
+      { ...exerciseCatalog.find(e => e.id === 'db_lateral_raises')!, duration: 35, weightLbs: 10 },
+      { ...exerciseCatalog.find(e => e.id === 'db_hammer_curls')!, duration: 40, weightLbs: 10 },
+      { ...exerciseCatalog.find(e => e.id === 'db_triceps_kickbacks')!, duration: 40, weightLbs: 10 }
+    ]
+  },
+  {
+    id: 'db_hiit_strength',
+    title: 'Dumbbell Core & Strength HIIT',
+    description: 'High-intensity compound movements to challenge your muscular endurance and core stability.',
+    duration: '3 min',
+    difficulty: 'Advanced',
+    image: 'https://images.unsplash.com/photo-1605296867304-46d5465a25f1?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
+    exercises: [
+      { ...exerciseCatalog.find(e => e.id === 'db_renegade_rows')!, duration: 45, weightLbs: 10 },
+      { ...exerciseCatalog.find(e => e.id === 'db_goblet_squats')!, duration: 45, weightLbs: 10 },
+      { ...exerciseCatalog.find(e => e.id === 'db_chest_flyes')!, duration: 40, weightLbs: 10 },
+      { ...exerciseCatalog.find(e => e.id === 'db_hammer_curls')!, duration: 40, weightLbs: 10 }
     ]
   }
 ];
