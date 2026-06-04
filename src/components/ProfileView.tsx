@@ -15,6 +15,8 @@ export default function ProfileView({ profile, logs, onUpdateProfile }: ProfileV
   const [dailyMinutesGoal, setDailyMinutesGoal] = useState(profile.dailyMinutesGoal);
   const [dailyStretchesGoal, setDailyStretchesGoal] = useState(profile.dailyStretchesGoal);
   const [weightKg, setWeightKg] = useState(profile.weightKg);
+  const [voiceRate, setVoiceRate] = useState(profile.voiceRate ?? 1.05);
+  const [voicePitch, setVoicePitch] = useState(profile.voicePitch ?? 1.0);
 
   // Level Logic: 500 XP per level
   const xpPerLevel = 500;
@@ -35,7 +37,9 @@ export default function ProfileView({ profile, logs, onUpdateProfile }: ProfileV
       name: name.trim() || 'Champion',
       dailyMinutesGoal: Math.max(1, dailyMinutesGoal),
       dailyStretchesGoal: Math.max(1, dailyStretchesGoal),
-      weightKg: Math.max(10, weightKg)
+      weightKg: Math.max(10, weightKg),
+      voiceRate: parseFloat(voiceRate.toString()) || 1.05,
+      voicePitch: parseFloat(voicePitch.toString()) || 1.0
     });
     setIsEditing(false);
   };
@@ -184,8 +188,44 @@ export default function ProfileView({ profile, logs, onUpdateProfile }: ProfileV
                   type="number"
                   value={dailyStretchesGoal}
                   onChange={(e) => setDailyStretchesGoal(parseInt(e.target.value) || 1)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-750 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-all"
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-755 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-all"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-600 dark:text-gray-450 uppercase tracking-wider mb-1.5 flex justify-between">
+                  <span>Voice Coach Speed</span>
+                  <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">{voiceRate}x</span>
+                </label>
+                <div className="flex items-center space-x-3 py-2.5">
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="2.0"
+                    step="0.05"
+                    value={voiceRate}
+                    onChange={(e) => setVoiceRate(parseFloat(e.target.value))}
+                    className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-600 dark:text-gray-450 uppercase tracking-wider mb-1.5 flex justify-between">
+                  <span>Voice Coach Pitch</span>
+                  <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">{voicePitch}</span>
+                </label>
+                <div className="flex items-center space-x-3 py-2.5">
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="2.0"
+                    step="0.1"
+                    value={voicePitch}
+                    onChange={(e) => setVoicePitch(parseFloat(e.target.value))}
+                    className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                </div>
               </div>
             </div>
 
@@ -197,6 +237,8 @@ export default function ProfileView({ profile, logs, onUpdateProfile }: ProfileV
                   setDailyMinutesGoal(profile.dailyMinutesGoal);
                   setDailyStretchesGoal(profile.dailyStretchesGoal);
                   setWeightKg(profile.weightKg);
+                  setVoiceRate(profile.voiceRate ?? 1.05);
+                  setVoicePitch(profile.voicePitch ?? 1.0);
                   setIsEditing(false);
                 }}
                 className="px-4 py-2 border border-gray-250 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-900 text-xs font-semibold"
@@ -228,6 +270,14 @@ export default function ProfileView({ profile, logs, onUpdateProfile }: ProfileV
             <div className="flex justify-between py-2 border-b border-gray-50 dark:border-gray-700/60">
               <span className="text-gray-400 font-semibold">Daily Workouts Goal</span>
               <span className="font-bold text-gray-850 dark:text-white">{profile.dailyStretchesGoal} sessions</span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-gray-50 dark:border-gray-700/60">
+              <span className="text-gray-400 font-semibold">Voice Speech Rate</span>
+              <span className="font-bold text-gray-855 dark:text-white">{profile.voiceRate ?? 1.05}x speed</span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-gray-50 dark:border-gray-700/60">
+              <span className="text-gray-400 font-semibold">Voice Pitch Tone</span>
+              <span className="font-bold text-gray-855 dark:text-white">{profile.voicePitch ?? 1.0} pitch</span>
             </div>
           </div>
         )}

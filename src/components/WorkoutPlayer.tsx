@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Play, Pause, SkipForward, SkipBack, X, Award, Flame, Timer, CheckCircle2, Volume2, VolumeX, Dumbbell, Sparkles } from 'lucide-react';
-import { Routine, Exercise } from '../types';
+import { Routine, Exercise, UserProfile } from '../types';
 
 function getBeginnerTip(exerciseName: string): string {
   const name = exerciseName.toLowerCase();
@@ -22,8 +22,42 @@ function getBeginnerTip(exerciseName: string): string {
   return 'Maintain steady, calm breathing. Focus on slow, controlled movements and full range of motion rather than speed.';
 }
 
+function getRestBreathingInfo(time: number) {
+  if (time > 6) {
+    // Inhale phase (4 seconds: 10, 9, 8, 7)
+    const progress = (10 - time) / 3; // 0 to 1
+    return {
+      text: 'Inhale Deeply',
+      scale: 1 + progress * 0.35,
+      color: 'text-indigo-400',
+      ringColor: 'stroke-indigo-500',
+      bgColor: 'from-indigo-600/20 to-indigo-900/5'
+    };
+  } else if (time > 4) {
+    // Hold phase (2 seconds: 6, 5)
+    return {
+      text: 'Hold Breath',
+      scale: 1.35,
+      color: 'text-purple-400 animate-pulse',
+      ringColor: 'stroke-purple-500',
+      bgColor: 'from-purple-600/25 to-purple-900/5'
+    };
+  } else {
+    // Exhale phase (4 seconds: 4, 3, 2, 1)
+    const progress = (time - 1) / 3; // 1 down to 0
+    return {
+      text: 'Exhale Slowly',
+      scale: 1 + progress * 0.35,
+      color: 'text-emerald-400',
+      ringColor: 'stroke-emerald-500',
+      bgColor: 'from-emerald-600/20 to-emerald-900/5'
+    };
+  }
+}
+
 interface WorkoutPlayerProps {
   routine: Routine;
+  profile?: UserProfile;
   onComplete: (stats: {
     duration: number;
     exercisesCompleted: number;
@@ -34,7 +68,7 @@ interface WorkoutPlayerProps {
   onClose: () => void;
 }
 
-export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutPlayerProps) {
+export default function WorkoutPlayer({ routine, profile, onComplete, onClose }: WorkoutPlayerProps) {
   const hasWeightedExercises = routine.exercises.some((ex) => ex.needsWeight);
   const [currentStep, setCurrentStep] = useState<'setup_weight' | 'intro' | 'active' | 'rest' | 'complete'>(
     hasWeightedExercises ? 'setup_weight' : 'intro'
@@ -93,8 +127,8 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
     try {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.05;
-      utterance.pitch = 1.0;
+      utterance.rate = profile?.voiceRate ?? 1.05;
+      utterance.pitch = profile?.voicePitch ?? 1.0;
       window.speechSynthesis.speak(utterance);
     } catch (e) {
       console.warn('Speech synthesis failed:', e);
@@ -352,6 +386,20 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeInstructionIndex, currentStep, exerciseIndex]);
+
+  // Vocal breathing prompts during rest breaks
+  useEffect(() => {
+    if (currentStep === 'rest') {
+      if (timeLeft === 10) {
+        speakText("Rest break. Inhale deeply.");
+      } else if (timeLeft === 6) {
+        speakText("Hold your breath.");
+      } else if (timeLeft === 4) {
+        speakText("Exhale slowly.");
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeLeft, currentStep]);
 
   return (
     <div className="fixed inset-0 bg-slate-950 text-white z-50 flex flex-col justify-between p-6 md:p-10 transition-all duration-300 overflow-hidden">
@@ -723,35 +771,65 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
         )}
 
         {/* STEP: Rest break between exercises */}
-        {currentStep === 'rest' && (
-          <div className="text-center space-y-8 max-w-md w-full px-4">
-            <div className="space-y-2">
-              <span className="text-rose-400 font-bold uppercase tracking-widest text-sm">
-                Rest Break
-              </span>
-              <h1 className="text-4xl sm:text-5xl font-black">Catch Your Breath</h1>
-            </div>
-
-            <div className="relative w-40 h-40 mx-auto">
-              <svg width="100%" height="100%" viewBox="0 0 100 100" className="transform -rotate-90">
-                <circle cx="50" cy="50" r="44" fill="transparent" stroke="#1e293b" strokeWidth="4" />
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="44"
-                  fill="transparent"
-                  stroke="#f43f5e"
-                  strokeWidth="4"
-                  strokeDasharray={2 * Math.PI * 44}
-                  strokeDashoffset={2 * Math.PI * 44 * (1 - timeLeft / 10)}
-                  strokeLinecap="round"
-                  className="transition-all duration-1000 ease-linear"
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-4xl font-extrabold font-mono">{timeLeft}s</span>
+        {currentStep === 'rest' && (() => {
+          const breathInfo = getRestBreathingInfo(timeLeft);
+          return (
+            <div className="text-center space-y-8 max-w-md w-full px-4 relative z-20">
+              <div className="space-y-2">
+                <span className="text-rose-450 font-black uppercase tracking-widest text-xs flex items-center justify-center space-x-1.5">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                  <span>Recovery Rest Break</span>
+                </span>
+                <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">Catch Your Breath</h1>
               </div>
-            </div>
+
+              {/* Dynamic Breathing Recovery Ring */}
+              <div className="relative w-56 h-56 mx-auto flex items-center justify-center">
+                {/* Glowing breathing aura backdrop */}
+                <div 
+                  className={`absolute inset-4 rounded-full bg-gradient-to-tr ${breathInfo.bgColor} blur-xl transition-all duration-1000 transform opacity-65`}
+                  style={{ transform: `scale(${breathInfo.scale})` }}
+                />
+
+                {/* Concentric rings */}
+                <div className="absolute inset-2 rounded-full border border-slate-900 pointer-events-none" />
+                <div 
+                  className="absolute inset-10 rounded-full border border-indigo-500/10 pointer-events-none transition-transform duration-1000"
+                  style={{ transform: `scale(${breathInfo.scale * 0.95})` }}
+                />
+
+                <svg width="100%" height="100%" viewBox="0 0 100 100" className="transform -rotate-90 absolute inset-0 z-10">
+                  <circle cx="50" cy="50" r="45" fill="transparent" stroke="#0f172a" strokeWidth="3" />
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="45"
+                    fill="transparent"
+                    stroke="url(#restGrad)"
+                    strokeWidth="3.5"
+                    strokeDasharray={2 * Math.PI * 45}
+                    strokeDashoffset={2 * Math.PI * 45 * (1 - timeLeft / 10)}
+                    strokeLinecap="round"
+                    className="transition-all duration-1000 ease-linear"
+                  />
+                  <defs>
+                    <linearGradient id="restGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#f43f5e" />
+                      <stop offset="100%" stopColor="#a855f7" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+
+                {/* Central text prompt */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center z-20 transition-transform duration-1000" style={{ transform: `scale(${breathInfo.scale * 0.85})` }}>
+                  <span className="text-4xl font-black font-mono leading-none tracking-tight">
+                    {timeLeft}s
+                  </span>
+                  <span className={`text-[10px] font-black uppercase tracking-wider mt-2 transition-colors duration-500 ${breathInfo.color}`}>
+                    {breathInfo.text}
+                  </span>
+                </div>
+              </div>
 
             {/* Next up preview */}
             {exerciseIndex + 1 < routine.exercises.length && (
@@ -779,7 +857,8 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
               </div>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {/* STEP: Summary completion details */}
         {currentStep === 'complete' && (

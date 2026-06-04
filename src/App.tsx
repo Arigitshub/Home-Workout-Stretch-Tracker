@@ -8,6 +8,7 @@ import HistoryLog from './components/HistoryLog';
 import ProfileView from './components/ProfileView';
 import ActivityRings from './components/ActivityRings';
 import CelebrationModal from './components/CelebrationModal';
+import StreakCalendar from './components/StreakCalendar';
 
 import { predefinedRoutines } from './data/routines';
 import { Routine, WorkoutLog, UserProfile } from './types';
@@ -46,13 +47,23 @@ export default function App() {
 
   const [profile, setProfile] = useState<UserProfile>(() => {
     const saved = localStorage.getItem('fittrack_profile');
-    return saved ? JSON.parse(saved) : {
+    const defaultProfile = {
       name: 'Champion Athlete',
       xp: 0,
       dailyMinutesGoal: 15,
       dailyStretchesGoal: 1,
-      weightKg: 70
+      weightKg: 70,
+      voiceRate: 1.05,
+      voicePitch: 1.0
     };
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return {
+        ...defaultProfile,
+        ...parsed
+      };
+    }
+    return defaultProfile;
   });
 
   // Sync data from Neon Database on mount
@@ -331,6 +342,7 @@ export default function App() {
       {activeWorkout && (
         <WorkoutPlayer
           routine={activeWorkout}
+          profile={profile}
           onComplete={handleWorkoutComplete}
           onClose={() => setActiveWorkout(null)}
         />
@@ -401,19 +413,24 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Progress Rings */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400">
-                  Today's Performance Target
-                </h3>
-                <ActivityRings
-                  minutesCompleted={todayStats.mins}
-                  minutesGoal={profile.dailyMinutesGoal}
-                  stretchesCompleted={todayStats.count}
-                  stretchesGoal={profile.dailyStretchesGoal}
-                  caloriesBurned={todayStats.cals}
-                  caloriesGoal={Math.round(profile.dailyMinutesGoal * 7)}
-                />
+              {/* Performance Targets & Activity Calendar Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                <div className="lg:col-span-7 space-y-3">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400">
+                    Today's Performance Target
+                  </h3>
+                  <ActivityRings
+                    minutesCompleted={todayStats.mins}
+                    minutesGoal={profile.dailyMinutesGoal}
+                    stretchesCompleted={todayStats.count}
+                    stretchesGoal={profile.dailyStretchesGoal}
+                    caloriesBurned={todayStats.cals}
+                    caloriesGoal={Math.round(profile.dailyMinutesGoal * 7)}
+                  />
+                </div>
+                <div className="lg:col-span-5">
+                  <StreakCalendar logs={logs} activeStreak={activeStreak} />
+                </div>
               </div>
 
               {/* Daily featured workouts */}
