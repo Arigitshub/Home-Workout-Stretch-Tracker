@@ -2,6 +2,26 @@ import { useState, useEffect, useRef } from 'react';
 import { Play, Pause, SkipForward, SkipBack, X, Award, Flame, Timer, CheckCircle2, Volume2, VolumeX, Dumbbell, Sparkles } from 'lucide-react';
 import { Routine, Exercise } from '../types';
 
+function getBeginnerTip(exerciseName: string): string {
+  const name = exerciseName.toLowerCase();
+  if (name.includes('squat')) {
+    return 'Keep your heels glued to the floor and knees pushing outward in line with your toes. Avoid arching your back.';
+  }
+  if (name.includes('plank') || name.includes('push-up') || name.includes('pushup')) {
+    return 'Keep your core braced tightly. Ensure a straight line from your head to your heels; do not let your hips sag.';
+  }
+  if (name.includes('lunge')) {
+    return 'Ensure your front knee does not slide forward past your toes. Keep your chest upright and step with control.';
+  }
+  if (name.includes('jack') || name.includes('climber') || name.includes('knee')) {
+    return 'Land softly on the balls of your feet to protect your joints. Maintain a steady, comfortable breathing rhythm.';
+  }
+  if (name.includes('crunch') || name.includes('twist') || name.includes('leg') || name.includes('kick')) {
+    return 'Press your lower back flat into the ground. Focus on contracting your abdominals rather than pulling on your neck.';
+  }
+  return 'Maintain steady, calm breathing. Focus on slow, controlled movements and full range of motion rather than speed.';
+}
+
 interface WorkoutPlayerProps {
   routine: Routine;
   onComplete: (stats: {
@@ -79,6 +99,16 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
     } catch (e) {
       console.warn('Speech synthesis failed:', e);
     }
+  };
+
+  const speakExerciseStart = (ex: Exercise) => {
+    const weightMsg = ex.needsWeight ? ` with ${weights[ex.id]} pounds` : '';
+    let msg = `Exercise: ${ex.name}${weightMsg}. Go!`;
+    if (routine.difficulty === 'Beginner') {
+      const setupMsg = ex.instructions && ex.instructions[0] ? `. Setup: ${ex.instructions[0]}` : '';
+      msg = `Exercise: ${ex.name}${weightMsg}${setupMsg}. Go!`;
+    }
+    speakText(msg);
   };
 
   const playBeep = (freq = 880, duration = 0.1) => {
@@ -160,9 +190,7 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
       setCurrentStep('active');
       const firstEx = routine.exercises[0];
       setTimeLeft(firstEx.duration);
-      
-      const weightMsg = firstEx.needsWeight ? ` with ${weights[firstEx.id]} pounds` : '';
-      speakText(`First exercise: ${firstEx.name}${weightMsg}. Go!`);
+      speakExerciseStart(firstEx);
     } else if (currentStep === 'active') {
       // Mark as completed
       if (currentExercise && !completedExerciseIds.includes(currentExercise.id)) {
@@ -186,9 +214,7 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
       setCurrentStep('active');
       const nextEx = routine.exercises[nextIndex];
       setTimeLeft(nextEx.duration);
-      
-      const weightMsg = nextEx.needsWeight ? ` with ${weights[nextEx.id]} pounds` : '';
-      speakText(`Exercise: ${nextEx.name}${weightMsg}. Go!`);
+      speakExerciseStart(nextEx);
     }
   };
 
@@ -206,9 +232,9 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
   const handleSkip = () => {
     if (currentStep === 'intro') {
       setCurrentStep('active');
-      setTimeLeft(routine.exercises[0].duration);
-      const weightMsg = routine.exercises[0].needsWeight ? ` with ${weights[routine.exercises[0].id]} pounds` : '';
-      speakText(`Starting ${routine.exercises[0].name}${weightMsg}. Go!`);
+      const firstEx = routine.exercises[0];
+      setTimeLeft(firstEx.duration);
+      speakExerciseStart(firstEx);
     } else if (currentStep === 'active') {
       // Skip active exercise
       if (currentExercise && !completedExerciseIds.includes(currentExercise.id)) {
@@ -226,9 +252,9 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
       const nextIndex = exerciseIndex + 1;
       setExerciseIndex(nextIndex);
       setCurrentStep('active');
-      setTimeLeft(routine.exercises[nextIndex].duration);
-      const weightMsg = routine.exercises[nextIndex].needsWeight ? ` with ${weights[routine.exercises[nextIndex].id]} pounds` : '';
-      speakText(`Exercise: ${routine.exercises[nextIndex].name}${weightMsg}. Go!`);
+      const nextEx = routine.exercises[nextIndex];
+      setTimeLeft(nextEx.duration);
+      speakExerciseStart(nextEx);
     }
   };
 
@@ -237,14 +263,26 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
       const prevIndex = exerciseIndex - 1;
       setExerciseIndex(prevIndex);
       setCurrentStep('active');
-      setTimeLeft(routine.exercises[prevIndex].duration);
-      speakText(`Back to ${routine.exercises[prevIndex].name}.`);
+      const prevEx = routine.exercises[prevIndex];
+      setTimeLeft(prevEx.duration);
+      speakExerciseStart(prevEx);
     } else if (currentStep === 'rest') {
       setCurrentStep('active');
-      setTimeLeft(routine.exercises[exerciseIndex].duration);
-      speakText(`Restarting ${routine.exercises[exerciseIndex].name}.`);
+      const currentEx = routine.exercises[exerciseIndex];
+      setTimeLeft(currentEx.duration);
+      speakExerciseStart(currentEx);
     } else {
-      setTimeLeft(routine.exercises[exerciseIndex].duration);
+      const currentEx = routine.exercises[exerciseIndex];
+      setTimeLeft(currentEx.duration);
+      speakExerciseStart(currentEx);
+    }
+  };
+
+  const togglePause = () => {
+    const nextPaused = !isPaused;
+    setIsPaused(nextPaused);
+    if (nextPaused && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
     }
   };
 
@@ -300,6 +338,20 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
       activeStepRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }, [activeInstructionIndex]);
+
+  // Step-by-step coaching for Beginners
+  useEffect(() => {
+    if (currentStep === 'active' && currentExercise && routine.difficulty === 'Beginner') {
+      // Skip the first setup step (index 0) because speakExerciseStart already read it as part of the startup setup.
+      if (activeInstructionIndex > 0) {
+        const activeInstruction = currentExercise.instructions[activeInstructionIndex];
+        if (activeInstruction) {
+          speakText(`Step ${activeInstructionIndex + 1}: ${activeInstruction}`);
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeInstructionIndex, currentStep, exerciseIndex]);
 
   return (
     <div className="fixed inset-0 bg-slate-950 text-white z-50 flex flex-col justify-between p-6 md:p-10 transition-all duration-300 overflow-hidden">
@@ -539,6 +591,17 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
                   })}
                 </div>
               </div>
+              {routine.difficulty === 'Beginner' && (
+                <div className="bg-indigo-950/20 border border-indigo-900/30 rounded-xl p-3.5 flex items-start space-x-2.5 mt-4">
+                  <span className="text-base text-indigo-400 select-none animate-bounce">💡</span>
+                  <div className="flex-1">
+                    <span className="text-[10px] font-black uppercase text-indigo-400 block tracking-wider">Coach Form Tip</span>
+                    <p className="text-xs text-indigo-200/90 leading-relaxed mt-0.5 font-medium font-mono">
+                      {getBeginnerTip(currentExercise.name)}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Circular Timer & Controls */}
@@ -642,7 +705,7 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
                 </button>
 
                 <button
-                  onClick={() => setIsPaused(!isPaused)}
+                  onClick={togglePause}
                   className="p-5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 transform active:scale-95 transition-all"
                 >
                   {isPaused ? <Play className="w-6 h-6 fill-white ml-0.5" /> : <Pause className="w-6 h-6 fill-white" />}
