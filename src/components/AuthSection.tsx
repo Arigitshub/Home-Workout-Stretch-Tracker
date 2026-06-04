@@ -213,7 +213,7 @@ export default function AuthSection({
             <Lock className="absolute left-3.5 top-3 w-4 h-4 text-gray-400" />
             <input
               type="password"
-              placeholder="e.g. 1718"
+              placeholder="Enter your PIN"
               value={pin}
               onChange={(e) => setPin(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-250 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-all"
