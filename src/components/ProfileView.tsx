@@ -1,15 +1,34 @@
 import { useState } from 'react';
 import { User, Award, Flame, Timer, TrendingUp, Settings, Edit3, Check } from 'lucide-react';
-import { UserProfile, WorkoutLog } from '../types';
+import { UserProfile, WorkoutLog, Routine } from '../types';
 import { badgesList } from '../data/badges';
+import AuthSection from './AuthSection';
 
 interface ProfileViewProps {
   profile: UserProfile;
   logs: WorkoutLog[];
+  customRoutines: Routine[];
+  currentUserId: string | null;
+  currentUserEmail: string | null;
+  currentUserPhone: string | null;
   onUpdateProfile: (updated: UserProfile) => void;
+  onAuthSuccess: (userId: string, email: string, phone: string) => void;
+  onSignOut: () => void;
+  onRefreshData: () => Promise<void>;
 }
 
-export default function ProfileView({ profile, logs, onUpdateProfile }: ProfileViewProps) {
+export default function ProfileView({
+  profile,
+  logs,
+  customRoutines,
+  currentUserId,
+  currentUserEmail,
+  currentUserPhone,
+  onUpdateProfile,
+  onAuthSuccess,
+  onSignOut,
+  onRefreshData
+}: ProfileViewProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(profile.name);
   const [dailyMinutesGoal, setDailyMinutesGoal] = useState(profile.dailyMinutesGoal);
@@ -83,6 +102,19 @@ export default function ProfileView({ profile, logs, onUpdateProfile }: ProfileV
           </div>
         </div>
       </div>
+
+      {/* Cloud Backup / Authentication Section */}
+      <AuthSection
+        currentUserId={currentUserId}
+        currentUserEmail={currentUserEmail}
+        currentUserPhone={currentUserPhone}
+        profile={profile}
+        customRoutines={customRoutines}
+        logs={logs}
+        onAuthSuccess={onAuthSuccess}
+        onSignOut={onSignOut}
+        onRefreshData={onRefreshData}
+      />
 
       {/* Aggregate Stats Dashboard */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

@@ -34,6 +34,11 @@ export default function App() {
   const [dbConnected, setDbConnected] = useState<boolean>(false);
   const [newlyUnlockedBadges, setNewlyUnlockedBadges] = useState<string[] | null>(null);
 
+  // Authentication State
+  const [currentUserId, setCurrentUserId] = useState<string | null>(() => localStorage.getItem('fittrack_user_id'));
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(() => localStorage.getItem('fittrack_user_email'));
+  const [currentUserPhone, setCurrentUserPhone] = useState<string | null>(() => localStorage.getItem('fittrack_user_phone'));
+
   // Database / Local Cache state
   const [logs, setLogs] = useState<WorkoutLog[]>(() => {
     const saved = localStorage.getItem('fittrack_logs');
@@ -66,30 +71,80 @@ export default function App() {
     return defaultProfile;
   });
 
-  // Sync data from Neon Database on mount
-  useEffect(() => {
-    async function syncData() {
-      try {
-        const fetchedProfile = await fetchProfile();
-        setProfile(fetchedProfile);
-        localStorage.setItem('fittrack_profile', JSON.stringify(fetchedProfile));
-
-        const fetchedRoutines = await fetchCustomRoutines();
-        setCustomRoutines(fetchedRoutines);
-        localStorage.setItem('fittrack_custom_routines', JSON.stringify(fetchedRoutines));
-
-        const fetchedLogs = await fetchLogs();
-        setLogs(fetchedLogs);
-        localStorage.setItem('fittrack_logs', JSON.stringify(fetchedLogs));
-
-        setDbConnected(true);
-      } catch (err) {
-        console.warn('Neon database offline or backend unreached. Running locally.', err);
-        setDbConnected(false);
-      }
+  // Load data from Neon Database server
+  const loadDataFromServer = async () => {
+    const userId = localStorage.getItem('fittrack_user_id');
+    // If not logged in, we stay offline / local storage
+    if (!userId) {
+      setDbConnected(false);
+      return;
     }
-    syncData();
-  }, []);
+    try {
+      const fetchedProfile = await fetchProfile();
+      setProfile(fetchedProfile);
+      localStorage.setItem('fittrack_profile', JSON.stringify(fetchedProfile));
+
+      const fetchedRoutines = await fetchCustomRoutines();
+      setCustomRoutines(fetchedRoutines);
+      localStorage.setItem('fittrack_custom_routines', JSON.stringify(fetchedRoutines));
+
+      const fetchedLogs = await fetchLogs();
+      setLogs(fetchedLogs);
+      localStorage.setItem('fittrack_logs', JSON.stringify(fetchedLogs));
+
+      setDbConnected(true);
+    } catch (err) {
+      console.warn('Neon database offline or backend unreached. Running locally.', err);
+      setDbConnected(false);
+    }
+  };
+
+  // Sync data from Neon Database on mount / user change
+  useEffect(() => {
+    loadDataFromServer();
+  }, [currentUserId]);
+
+  const handleAuthSuccess = (userId: string, email: string, phone: string) => {
+    setCurrentUserId(userId);
+    setCurrentUserEmail(email);
+    setCurrentUserPhone(phone);
+    setDbConnected(true);
+  };
+
+  const handleSignOut = () => {
+    localStorage.removeItem('fittrack_user_id');
+    localStorage.removeItem('fittrack_user_email');
+    localStorage.removeItem('fittrack_user_phone');
+    setCurrentUserId(null);
+    setCurrentUserEmail(null);
+    setCurrentUserPhone(null);
+
+    // Revert profile, custom routines, logs to local cache if present
+    const cachedProfile = localStorage.getItem('fittrack_profile');
+    if (cachedProfile) {
+      try {
+        setProfile(JSON.parse(cachedProfile));
+      } catch {
+        // Fallback
+      }
+    } else {
+      setProfile({
+        name: 'Champion Athlete',
+        xp: 0,
+        dailyMinutesGoal: 15,
+        dailyStretchesGoal: 1,
+        weightKg: 70
+      });
+    }
+
+    const cachedRoutines = localStorage.getItem('fittrack_custom_routines');
+    setCustomRoutines(cachedRoutines ? JSON.parse(cachedRoutines) : []);
+
+    const cachedLogs = localStorage.getItem('fittrack_logs');
+    setLogs(cachedLogs ? JSON.parse(cachedLogs) : []);
+
+    setDbConnected(false);
+  };
 
   // Save changes to LocalStorage as a local cache
   useEffect(() => {
@@ -562,7 +617,14 @@ export default function App() {
               <ProfileView
                 profile={profile}
                 logs={logs}
+                customRoutines={customRoutines}
+                currentUserId={currentUserId}
+                currentUserEmail={currentUserEmail}
+                currentUserPhone={currentUserPhone}
                 onUpdateProfile={handleUpdateProfile}
+                onAuthSuccess={handleAuthSuccess}
+                onSignOut={handleSignOut}
+                onRefreshData={loadDataFromServer}
               />
             </div>
           )}
