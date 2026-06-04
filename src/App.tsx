@@ -374,6 +374,25 @@ export default function App() {
     }
   };
 
+  const handleSaveManualLog = async (newLog: WorkoutLog) => {
+    setLogs((prev) => [newLog, ...prev]);
+    
+    const updatedProfile = {
+      ...profile,
+      xp: profile.xp + newLog.xpEarned
+    };
+    setProfile(updatedProfile);
+
+    try {
+      if (dbConnected) {
+        await saveLog(newLog);
+        await updateProfileOnServer(updatedProfile);
+      }
+    } catch (e) {
+      console.error('Failed to save manual log to db:', e);
+    }
+  };
+
   // Filters for workouts view
   const [workoutFilter, setWorkoutFilter] = useState<'all' | 'workouts' | 'stretches'>('all');
   const filteredRoutines = allRoutines.filter((r) => {
@@ -607,7 +626,12 @@ export default function App() {
           {activeTab === 'progress' && (
             <div className="space-y-6">
               <ProgressChart logs={logs} />
-              <HistoryLog logs={logs} onDeleteLog={handleDeleteLog} />
+              <HistoryLog
+                logs={logs}
+                onDeleteLog={handleDeleteLog}
+                onAddManualLog={handleSaveManualLog}
+                routines={allRoutines}
+              />
             </div>
           )}
 
