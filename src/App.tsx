@@ -503,7 +503,12 @@ export default function App() {
                   />
                 </div>
                 <div className="lg:col-span-5">
-                  <StreakCalendar logs={logs} activeStreak={activeStreak} />
+                  <StreakCalendar
+                    logs={logs}
+                    activeStreak={activeStreak}
+                    onAddManualLog={handleSaveManualLog}
+                    routines={allRoutines}
+                  />
                 </div>
               </div>
 
