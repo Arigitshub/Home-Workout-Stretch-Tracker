@@ -11,6 +11,15 @@ import ActivityRings from './components/ActivityRings';
 import { predefinedRoutines } from './data/routines';
 import { Routine, WorkoutLog, UserProfile } from './types';
 import { Sun, Moon, Flame, Dumbbell } from 'lucide-react';
+import {
+  fetchProfile,
+  updateProfileOnServer,
+  fetchCustomRoutines,
+  saveCustomRoutine,
+  fetchLogs,
+  saveLog,
+  deleteLog
+} from './api';
 
 export default function App() {
   const [darkMode, setDarkMode] = useState<boolean>(() => {
@@ -20,8 +29,9 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<string>('home');
   const [activeWorkout, setActiveWorkout] = useState<Routine | null>(null);
+  const [dbConnected, setDbConnected] = useState<boolean>(false);
 
-  // Database State with LocalStorage
+  // Database / Local Cache state
   const [logs, setLogs] = useState<WorkoutLog[]>(() => {
     const saved = localStorage.getItem('fittrack_logs');
     return saved ? JSON.parse(saved) : [];
@@ -43,7 +53,32 @@ export default function App() {
     };
   });
 
-  // Save changes to LocalStorage
+  // Sync data from Neon Database on mount
+  useEffect(() => {
+    async function syncData() {
+      try {
+        const fetchedProfile = await fetchProfile();
+        setProfile(fetchedProfile);
+        localStorage.setItem('fittrack_profile', JSON.stringify(fetchedProfile));
+
+        const fetchedRoutines = await fetchCustomRoutines();
+        setCustomRoutines(fetchedRoutines);
+        localStorage.setItem('fittrack_custom_routines', JSON.stringify(fetchedRoutines));
+
+        const fetchedLogs = await fetchLogs();
+        setLogs(fetchedLogs);
+        localStorage.setItem('fittrack_logs', JSON.stringify(fetchedLogs));
+
+        setDbConnected(true);
+      } catch (err) {
+        console.warn('Neon database offline or backend unreached. Running locally.', err);
+        setDbConnected(false);
+      }
+    }
+    syncData();
+  }, []);
+
+  // Save changes to LocalStorage as a local cache
   useEffect(() => {
     localStorage.setItem('fittrack_logs', JSON.stringify(logs));
   }, [logs]);
@@ -84,7 +119,7 @@ export default function App() {
     if (workoutLogs.length === 0) return 0;
     const sortedDates = [...new Set(workoutLogs.map((log) => new Date(log.date).toDateString()))]
       .map((dStr) => new Date(dStr))
-      .sort((a, b) => b.getTime() - a.getTime()); // newest to oldest
+      .sort((a, b) => b.getTime() - a.getTime());
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -120,7 +155,7 @@ export default function App() {
   const activeStreak = calculateStreak(logs);
 
   // Handlers
-  const handleWorkoutComplete = (stats: {
+  const handleWorkoutComplete = async (stats: {
     duration: number;
     exercisesCompleted: number;
     caloriesBurned: number;
@@ -142,33 +177,72 @@ export default function App() {
       weightsUsed: stats.weightsUsed
     };
 
+    // Optimistic UI updates
     setLogs((prev) => [newLog, ...prev]);
+    const updatedProfile = {
+      ...profile,
+      xp: profile.xp + stats.xpEarned
+    };
+    setProfile(updatedProfile);
 
-    // Update profile XP
-    setProfile((prev) => ({
-      ...prev,
-      xp: prev.xp + stats.xpEarned
-    }));
+    // Save to Neon Database
+    try {
+      if (dbConnected) {
+        await saveLog(newLog);
+        await updateProfileOnServer(updatedProfile);
+      }
+    } catch (e) {
+      console.error('Failed to sync completed workout to db:', e);
+    }
 
     // Reset played routine and navigate to Logs
     setActiveWorkout(null);
     setActiveTab('progress');
   };
 
-  const handleSaveCustomRoutine = (newRoutine: Routine) => {
+  const handleSaveCustomRoutine = async (newRoutine: Routine) => {
     setCustomRoutines((prev) => [newRoutine, ...prev]);
+    try {
+      if (dbConnected) {
+        await saveCustomRoutine(newRoutine);
+      }
+    } catch (e) {
+      console.error('Failed to save custom routine to db:', e);
+    }
     setActiveTab('workouts');
   };
 
-  const handleDeleteLog = (id: string) => {
+  const handleUpdateProfile = async (updatedProfile: UserProfile) => {
+    setProfile(updatedProfile);
+    try {
+      if (dbConnected) {
+        await updateProfileOnServer(updatedProfile);
+      }
+    } catch (e) {
+      console.error('Failed to sync profile to db:', e);
+    }
+  };
+
+  const handleDeleteLog = async (id: string) => {
     const logToDelete = logs.find((l) => l.id === id);
+    let updatedProfile = { ...profile };
     if (logToDelete) {
-      setProfile((prev) => ({
-        ...prev,
-        xp: Math.max(0, prev.xp - logToDelete.xpEarned)
-      }));
+      updatedProfile = {
+        ...profile,
+        xp: Math.max(0, profile.xp - logToDelete.xpEarned)
+      };
+      setProfile(updatedProfile);
     }
     setLogs((prev) => prev.filter((l) => l.id !== id));
+
+    try {
+      if (dbConnected) {
+        await deleteLog(id);
+        await updateProfileOnServer(updatedProfile);
+      }
+    } catch (e) {
+      console.error('Failed to delete log from db:', e);
+    }
   };
 
   // Filters for workouts view
@@ -204,20 +278,31 @@ export default function App() {
         
         {/* Top Header Row */}
         <header className="flex justify-between items-center mb-8 border-b border-gray-100 dark:border-slate-800 pb-4">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-lg bg-indigo-650 flex items-center justify-center text-white">
-              <Dumbbell className="w-5 h-5" />
+          <div className="flex items-center space-x-3 w-full justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 rounded-lg bg-indigo-650 flex items-center justify-center text-white">
+                <Dumbbell className="w-5 h-5" />
+              </div>
+              <h1 className="text-2xl font-black tracking-tight text-gray-850 dark:text-white mr-2">FitTrack</h1>
+              
+              {/* Database Live Sync Status Badge */}
+              <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${
+                dbConnected 
+                  ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' 
+                  : 'bg-amber-500/10 text-amber-550 border-amber-500/20 dark:text-amber-450 dark:border-amber-500/10'
+              }`}>
+                {dbConnected ? '● Neon Live' : '○ Local Sync'}
+              </span>
             </div>
-            <h1 className="text-2xl font-black tracking-tight text-gray-850 dark:text-white">FitTrack</h1>
-          </div>
 
-          <button
-            onClick={() => setDarkMode(!darkMode)}
-            className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-gray-150 dark:border-slate-800 text-gray-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors shadow-xs"
-            title="Toggle theme"
-          >
-            {darkMode ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}
-          </button>
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-gray-150 dark:border-slate-800 text-gray-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors shadow-xs"
+              title="Toggle theme"
+            >
+              {darkMode ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}
+            </button>
+          </div>
         </header>
 
         {/* Dynamic Tab Router */}
@@ -264,7 +349,7 @@ export default function App() {
                   stretchesCompleted={todayStats.count}
                   stretchesGoal={profile.dailyStretchesGoal}
                   caloriesBurned={todayStats.cals}
-                  caloriesGoal={Math.round(profile.dailyMinutesGoal * 7)} // Calorie goal is ~7x active minutes
+                  caloriesGoal={Math.round(profile.dailyMinutesGoal * 7)}
                 />
               </div>
 
@@ -311,7 +396,7 @@ export default function App() {
                 <div>
                   <h2 className="text-2xl font-black text-gray-850 dark:text-white">Routines Library</h2>
                   <p className="text-gray-500 dark:text-gray-400 text-xs mt-0.5">
-                    Launch guided video-like steps for exercises and stretches.
+                    Launch guided steps for exercises and stretches.
                   </p>
                 </div>
 
@@ -397,7 +482,7 @@ export default function App() {
               <ProfileView
                 profile={profile}
                 logs={logs}
-                onUpdateProfile={setProfile}
+                onUpdateProfile={handleUpdateProfile}
               />
             </div>
           )}
