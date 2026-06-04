@@ -292,7 +292,7 @@ export const exerciseCatalog: Exercise[] = [
     ],
     type: 'workout',
     needsWeight: true,
-    weightLbs: 15
+    weightLbs: 10
   },
   {
     id: 'db_shoulder_press',
@@ -307,7 +307,7 @@ export const exerciseCatalog: Exercise[] = [
     ],
     type: 'workout',
     needsWeight: true,
-    weightLbs: 20
+    weightLbs: 10
   },
   {
     id: 'db_goblet_squats',
@@ -322,7 +322,7 @@ export const exerciseCatalog: Exercise[] = [
     ],
     type: 'workout',
     needsWeight: true,
-    weightLbs: 25
+    weightLbs: 10
   },
   {
     id: 'db_rows',
@@ -337,7 +337,7 @@ export const exerciseCatalog: Exercise[] = [
     ],
     type: 'workout',
     needsWeight: true,
-    weightLbs: 20
+    weightLbs: 10
   },
   {
     id: 'db_chest_press',
@@ -352,7 +352,7 @@ export const exerciseCatalog: Exercise[] = [
     ],
     type: 'workout',
     needsWeight: true,
-    weightLbs: 25
+    weightLbs: 10
   }
 ];
 
@@ -456,11 +456,11 @@ export const predefinedRoutines: Routine[] = [
     difficulty: 'Intermediate',
     image: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
     exercises: [
-      { ...exerciseCatalog.find(e => e.id === 'db_goblet_squats')!, duration: 45, weightLbs: 20 },
-      { ...exerciseCatalog.find(e => e.id === 'db_shoulder_press')!, duration: 40, weightLbs: 15 },
-      { ...exerciseCatalog.find(e => e.id === 'db_rows')!, duration: 45, weightLbs: 20 },
-      { ...exerciseCatalog.find(e => e.id === 'db_bicep_curls')!, duration: 40, weightLbs: 12 },
-      { ...exerciseCatalog.find(e => e.id === 'db_chest_press')!, duration: 40, weightLbs: 25 }
+      { ...exerciseCatalog.find(e => e.id === 'db_goblet_squats')!, duration: 45, weightLbs: 10 },
+      { ...exerciseCatalog.find(e => e.id === 'db_shoulder_press')!, duration: 40, weightLbs: 10 },
+      { ...exerciseCatalog.find(e => e.id === 'db_rows')!, duration: 45, weightLbs: 10 },
+      { ...exerciseCatalog.find(e => e.id === 'db_bicep_curls')!, duration: 40, weightLbs: 10 },
+      { ...exerciseCatalog.find(e => e.id === 'db_chest_press')!, duration: 40, weightLbs: 10 }
     ]
   }
 ];

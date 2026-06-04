@@ -43,19 +43,8 @@ export default function ProgressChart({ logs = [] }: ProgressChartProps) {
     }
   });
 
-  // Fallback to static demo data if there are no logs to show, so the user doesn't see a blank chart
   const hasData = logs.length > 0;
-  const chartData = hasData
-    ? last7DaysData
-    : [
-        { name: 'Mon', workouts: 1, minutes: 15, calories: 120 },
-        { name: 'Tue', workouts: 2, minutes: 40, calories: 310 },
-        { name: 'Wed', workouts: 0, minutes: 0, calories: 0 },
-        { name: 'Thu', workouts: 3, minutes: 45, calories: 380 },
-        { name: 'Fri', workouts: 1, minutes: 20, calories: 150 },
-        { name: 'Sat', workouts: 2, minutes: 30, calories: 250 },
-        { name: 'Sun', workouts: 1, minutes: 10, calories: 80 }
-      ];
+  const chartData = last7DaysData;
 
   const getActiveMetricLabel = () => {
     switch (metric) {
@@ -81,7 +70,7 @@ export default function ProgressChart({ logs = [] }: ProgressChartProps) {
         <div>
           <h3 className="font-bold text-lg text-gray-800 dark:text-white">Weekly Performance</h3>
           <p className="text-xs text-gray-400">
-            {hasData ? "Displaying your logged activity this week." : "Sample data (no workouts logged yet)."}
+            {hasData ? "Displaying your logged activity this week." : "No workouts logged this week yet."}
           </p>
         </div>
 
