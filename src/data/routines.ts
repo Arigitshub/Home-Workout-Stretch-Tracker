@@ -278,6 +278,81 @@ export const exerciseCatalog: Exercise[] = [
       'Focus on a feeling of heavy relaxation throughout your body.'
     ],
     type: 'stretch'
+  },
+  {
+    id: 'db_bicep_curls',
+    name: 'Dumbbell Bicep Curls',
+    duration: 40,
+    description: 'Classic bicep exercise to build arm strength and definition.',
+    instructions: [
+      'Hold dumbbells by your sides, palms facing forward.',
+      'Keep elbows close to your torso.',
+      'Curl the weights up while contracting your biceps.',
+      'Lower the dumbbells back down slowly to complete one rep.'
+    ],
+    type: 'workout',
+    needsWeight: true,
+    weightLbs: 15
+  },
+  {
+    id: 'db_shoulder_press',
+    name: 'Dumbbell Shoulder Press',
+    duration: 45,
+    description: 'Strengthens the shoulders, upper back, and triceps.',
+    instructions: [
+      'Sit or stand tall, holding dumbbells at shoulder level.',
+      'Palms should face forward, elbows bent at 90 degrees.',
+      'Press weights straight up until your arms are fully extended.',
+      'Slowly lower back to starting shoulder height.'
+    ],
+    type: 'workout',
+    needsWeight: true,
+    weightLbs: 20
+  },
+  {
+    id: 'db_goblet_squats',
+    name: 'Dumbbell Goblet Squats',
+    duration: 45,
+    description: 'Loaded lower-body squat to increase quad, glute, and core activation.',
+    instructions: [
+      'Hold a single dumbbell vertically by its head near your chest.',
+      'Set feet shoulder-width apart, toes pointing slightly out.',
+      'Lower your hips back and down while keeping your chest upright.',
+      'Push through your heels to return to standing.'
+    ],
+    type: 'workout',
+    needsWeight: true,
+    weightLbs: 25
+  },
+  {
+    id: 'db_rows',
+    name: 'Bent-Over Dumbbell Rows',
+    duration: 45,
+    description: 'Excellent back exercise targeting latissimus dorsi and rhomboids.',
+    instructions: [
+      'Hold a dumbbell in each hand, bend knees slightly, lean forward from hips.',
+      'Keep back flat, letting dumbbells hang straight down.',
+      'Pull dumbbells to your waist, squeezing your shoulder blades.',
+      'Slowly lower dumbbells back to the starting position.'
+    ],
+    type: 'workout',
+    needsWeight: true,
+    weightLbs: 20
+  },
+  {
+    id: 'db_chest_press',
+    name: 'Dumbbell Floor Press',
+    duration: 40,
+    description: 'Triceps and chest press performed on the floor for safety and shoulder stability.',
+    instructions: [
+      'Lie on your back, knees bent, feet flat on the floor.',
+      'Hold dumbbells at chest level, elbows resting on the floor at 45 degrees.',
+      'Press dumbbells straight up above your chest.',
+      'Lower slowly until your elbows gently touch the floor again.'
+    ],
+    type: 'workout',
+    needsWeight: true,
+    weightLbs: 25
   }
 ];
 
@@ -372,5 +447,21 @@ export const predefinedRoutines: Routine[] = [
       { ...exerciseCatalog.find(e => e.id === 'seated_twist')!, duration: 45 },
       { ...exerciseCatalog.find(e => e.id === 'childs_pose')!, duration: 60 }
     ]
+  },
+  {
+    id: 'dumbbell_strength',
+    title: 'Dumbbell Power & Tone',
+    description: 'Full-body strength training routine using dumbbells. Targets major muscle groups (legs, chest, back, shoulders, arms).',
+    duration: '3.5 min',
+    difficulty: 'Intermediate',
+    image: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
+    exercises: [
+      { ...exerciseCatalog.find(e => e.id === 'db_goblet_squats')!, duration: 45, weightLbs: 20 },
+      { ...exerciseCatalog.find(e => e.id === 'db_shoulder_press')!, duration: 40, weightLbs: 15 },
+      { ...exerciseCatalog.find(e => e.id === 'db_rows')!, duration: 45, weightLbs: 20 },
+      { ...exerciseCatalog.find(e => e.id === 'db_bicep_curls')!, duration: 40, weightLbs: 12 },
+      { ...exerciseCatalog.find(e => e.id === 'db_chest_press')!, duration: 40, weightLbs: 25 }
+    ]
   }
 ];
+

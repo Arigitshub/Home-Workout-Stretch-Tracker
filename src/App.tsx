@@ -125,6 +125,7 @@ export default function App() {
     exercisesCompleted: number;
     caloriesBurned: number;
     xpEarned: number;
+    weightsUsed?: { [exerciseName: string]: number };
   }) => {
     if (!activeWorkout) return;
 
@@ -137,7 +138,8 @@ export default function App() {
       duration: stats.duration,
       exercisesCompleted: stats.exercisesCompleted,
       caloriesBurned: stats.caloriesBurned,
-      xpEarned: stats.xpEarned
+      xpEarned: stats.xpEarned,
+      weightsUsed: stats.weightsUsed
     };
 
     setLogs((prev) => [newLog, ...prev]);

@@ -48,6 +48,12 @@ export default function RoutineBuilder({ onSave, onCancel }: RoutineBuilderProps
     setSelectedExercises(updated);
   };
 
+  const updateWeight = (index: number, lbs: number) => {
+    const updated = [...selectedExercises];
+    updated[index].weightLbs = Math.max(2, lbs); // minimum 2 lbs
+    setSelectedExercises(updated);
+  };
+
   const moveExercise = (index: number, direction: 'up' | 'down') => {
     if (direction === 'up' && index === 0) return;
     if (direction === 'down' && index === selectedExercises.length - 1) return;
@@ -312,17 +318,34 @@ export default function RoutineBuilder({ onSave, onCancel }: RoutineBuilderProps
                         {ex.name.replace(/_.*$/, '')} {/* strip unique ID suffix */}
                       </h4>
                       {/* Duration configure */}
-                      <div className="flex items-center space-x-1.5 mt-1">
-                        <span className="text-[10px] text-gray-500 font-semibold uppercase">Hold Time:</span>
-                        <input
-                          type="number"
-                          value={ex.duration}
-                          min={5}
-                          max={300}
-                          onChange={(e) => updateDuration(index, parseInt(e.target.value) || 30)}
-                          className="w-16 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700 bg-gray-55 dark:bg-gray-900 text-slate-800 dark:text-white font-mono text-[11px] font-bold focus:outline-none"
-                        />
-                        <span className="text-[10px] text-gray-550 font-semibold">seconds</span>
+                      <div className="flex flex-wrap items-center gap-y-1.5 gap-x-3 mt-1.5">
+                        <div className="flex items-center space-x-1.5">
+                          <span className="text-[10px] text-gray-500 font-semibold uppercase">Hold Time:</span>
+                          <input
+                            type="number"
+                            value={ex.duration}
+                            min={5}
+                            max={300}
+                            onChange={(e) => updateDuration(index, parseInt(e.target.value) || 30)}
+                            className="w-16 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-slate-800 dark:text-white font-mono text-[11px] font-bold focus:outline-none"
+                          />
+                          <span className="text-[10px] text-gray-500 font-semibold">seconds</span>
+                        </div>
+
+                        {ex.needsWeight && (
+                          <div className="flex items-center space-x-1.5">
+                            <span className="text-[10px] text-gray-500 font-semibold uppercase">Weight:</span>
+                            <input
+                              type="number"
+                              value={ex.weightLbs || 10}
+                              min={2}
+                              max={150}
+                              onChange={(e) => updateWeight(index, parseInt(e.target.value) || 10)}
+                              className="w-14 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-slate-800 dark:text-white font-mono text-[11px] font-bold focus:outline-none"
+                            />
+                            <span className="text-[10px] text-gray-500 font-semibold">lbs</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 

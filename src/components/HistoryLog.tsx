@@ -102,6 +102,17 @@ export default function HistoryLog({ logs, onDeleteLog }: HistoryLogProps) {
                       +{log.xpEarned} XP
                     </span>
                   </div>
+
+                  {log.weightsUsed && Object.keys(log.weightsUsed).length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2.5 bg-gray-100/50 dark:bg-slate-950/20 border border-gray-150 dark:border-slate-850 p-2 rounded-xl text-[10px]">
+                      <span className="font-bold text-[9px] uppercase tracking-wider text-indigo-500 dark:text-indigo-400 block w-full">Weights Log:</span>
+                      {Object.entries(log.weightsUsed).map(([exName, wt]) => (
+                        <span key={exName} className="bg-white dark:bg-slate-900 border border-gray-150 dark:border-slate-800/80 px-2 py-0.5 rounded-lg text-slate-600 dark:text-slate-350">
+                          {exName}: <strong className="text-indigo-650 dark:text-indigo-400 font-mono">{wt} lbs</strong>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Delete Log */}

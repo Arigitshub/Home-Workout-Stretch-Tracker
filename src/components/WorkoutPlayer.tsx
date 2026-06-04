@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Pause, SkipForward, SkipBack, X, Award, Flame, Timer, CheckCircle2, Volume2, VolumeX } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, X, Award, Flame, Timer, CheckCircle2, Volume2, VolumeX, Dumbbell } from 'lucide-react';
 import { Routine, Exercise } from '../types';
 
 interface WorkoutPlayerProps {
@@ -9,16 +9,32 @@ interface WorkoutPlayerProps {
     exercisesCompleted: number;
     caloriesBurned: number;
     xpEarned: number;
+    weightsUsed?: { [exerciseName: string]: number };
   }) => void;
   onClose: () => void;
 }
 
 export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutPlayerProps) {
-  const [currentStep, setCurrentStep] = useState<'intro' | 'active' | 'rest' | 'complete'>('intro');
+  const hasWeightedExercises = routine.exercises.some((ex) => ex.needsWeight);
+  const [currentStep, setCurrentStep] = useState<'setup_weight' | 'intro' | 'active' | 'rest' | 'complete'>(
+    hasWeightedExercises ? 'setup_weight' : 'intro'
+  );
+  
   const [exerciseIndex, setExerciseIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(5); // 5s intro countdown
   const [isPaused, setIsPaused] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+
+  // Map of exercise ID -> configured weight in lbs
+  const [weights, setWeights] = useState<{ [exId: string]: number }>(() => {
+    const initialWeights: { [exId: string]: number } = {};
+    routine.exercises.forEach((ex) => {
+      if (ex.needsWeight) {
+        initialWeights[ex.id] = ex.weightLbs || 10;
+      }
+    });
+    return initialWeights;
+  });
 
   // Statistics trackers
   const [totalSecsCompleted, setTotalSecsCompleted] = useState(0);
@@ -67,20 +83,22 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
     }
   };
 
-  // Speak initial intro
+  // Speak initial intro when transitions to warmup
   useEffect(() => {
-    speakText(`Get ready to start ${routine.title}. Let's warm up.`);
+    if (currentStep === 'intro') {
+      speakText(`Get ready to start ${routine.title}. Let's warm up.`);
+    }
     return () => {
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentStep]);
 
   // Main countdown loop
   useEffect(() => {
-    if (isPaused || currentStep === 'complete') {
+    if (isPaused || currentStep === 'complete' || currentStep === 'setup_weight') {
       if (intervalRef.current) clearInterval(intervalRef.current);
       return;
     }
@@ -120,7 +138,9 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
       setCurrentStep('active');
       const firstEx = routine.exercises[0];
       setTimeLeft(firstEx.duration);
-      speakText(`First exercise: ${firstEx.name}. Go!`);
+      
+      const weightMsg = firstEx.needsWeight ? ` with ${weights[firstEx.id]} pounds` : '';
+      speakText(`First exercise: ${firstEx.name}${weightMsg}. Go!`);
     } else if (currentStep === 'active') {
       // Mark as completed
       if (currentExercise && !completedExerciseIds.includes(currentExercise.id)) {
@@ -144,12 +164,13 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
       setCurrentStep('active');
       const nextEx = routine.exercises[nextIndex];
       setTimeLeft(nextEx.duration);
-      speakText(`Exercise: ${nextEx.name}. Go!`);
+      
+      const weightMsg = nextEx.needsWeight ? ` with ${weights[nextEx.id]} pounds` : '';
+      speakText(`Exercise: ${nextEx.name}${weightMsg}. Go!`);
     }
   };
 
   const handleCompletion = () => {
-    // Play celebratory tone
     if (soundEnabled) {
       setTimeout(() => playBeep(523.25, 0.15), 0);   // C5
       setTimeout(() => playBeep(659.25, 0.15), 150); // E5
@@ -164,7 +185,8 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
     if (currentStep === 'intro') {
       setCurrentStep('active');
       setTimeLeft(routine.exercises[0].duration);
-      speakText(`Starting ${routine.exercises[0].name}. Go!`);
+      const weightMsg = routine.exercises[0].needsWeight ? ` with ${weights[routine.exercises[0].id]} pounds` : '';
+      speakText(`Starting ${routine.exercises[0].name}${weightMsg}. Go!`);
     } else if (currentStep === 'active') {
       // Skip active exercise
       if (currentExercise && !completedExerciseIds.includes(currentExercise.id)) {
@@ -183,31 +205,29 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
       setExerciseIndex(nextIndex);
       setCurrentStep('active');
       setTimeLeft(routine.exercises[nextIndex].duration);
-      speakText(`Exercise: ${routine.exercises[nextIndex].name}. Go!`);
+      const weightMsg = routine.exercises[nextIndex].needsWeight ? ` with ${weights[routine.exercises[nextIndex].id]} pounds` : '';
+      speakText(`Exercise: ${routine.exercises[nextIndex].name}${weightMsg}. Go!`);
     }
   };
 
   const handleBack = () => {
     if (currentStep === 'active' && exerciseIndex > 0) {
-      // Go to previous exercise
       const prevIndex = exerciseIndex - 1;
       setExerciseIndex(prevIndex);
       setCurrentStep('active');
       setTimeLeft(routine.exercises[prevIndex].duration);
       speakText(`Back to ${routine.exercises[prevIndex].name}.`);
     } else if (currentStep === 'rest') {
-      // Return to active of current exercise
       setCurrentStep('active');
       setTimeLeft(routine.exercises[exerciseIndex].duration);
       speakText(`Restarting ${routine.exercises[exerciseIndex].name}.`);
     } else {
-      // Restart current exercise
       setTimeLeft(routine.exercises[exerciseIndex].duration);
     }
   };
 
   const handleSave = () => {
-    // Estimate calories: workouts burn ~0.15 kcal/s, stretches burn ~0.05 kcal/s
+    // Estimate calories
     const workoutSecs = routine.exercises
       .filter((ex) => ex.type === 'workout')
       .reduce((sum, ex) => sum + ex.duration, 0);
@@ -221,11 +241,20 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
     const durationMins = totalSecsCompleted / 60;
     const estXp = Math.round(durationMins * 10 + completedExerciseIds.length * 5);
 
+    // Build log of weights used
+    const weightsLog: { [exerciseName: string]: number } = {};
+    routine.exercises.forEach((ex) => {
+      if (ex.needsWeight && weights[ex.id]) {
+        weightsLog[ex.name] = weights[ex.id];
+      }
+    });
+
     onComplete({
       duration: totalSecsCompleted,
       exercisesCompleted: completedExerciseIds.length,
       caloriesBurned: estCalories,
-      xpEarned: estXp || 10 // minimum 10 XP
+      xpEarned: estXp || 10,
+      weightsUsed: weightsLog
     });
   };
 
@@ -246,14 +275,13 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
         </div>
 
         <div className="flex items-center space-x-3">
-          {/* Sound Toggle */}
           <button
             onClick={() => setSoundEnabled(!soundEnabled)}
             className="p-2.5 rounded-full bg-slate-900 border border-slate-800 hover:bg-slate-800 transition-colors text-slate-300 hover:text-white"
           >
             {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5 text-rose-400" />}
           </button>
-          {/* Quit Button */}
+          
           {currentStep !== 'complete' && (
             <button
               onClick={() => {
@@ -270,7 +298,79 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
       </div>
 
       {/* Main Screen Router */}
-      <div className="flex-1 flex flex-col items-center justify-center py-6">
+      <div className="flex-1 flex flex-col items-center justify-center py-6 w-full">
+        
+        {/* STEP: Weight setup panel */}
+        {currentStep === 'setup_weight' && (
+          <div className="bg-slate-900 border border-slate-800 max-w-lg w-full rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl relative overflow-hidden">
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-950/50 border border-indigo-700/50 flex items-center justify-center text-indigo-400 mx-auto mb-2">
+                <Dumbbell className="w-6 h-6 animate-pulse" />
+              </div>
+              <span className="text-indigo-400 font-bold uppercase tracking-widest text-xs">Pre-Workout Config</span>
+              <h1 className="text-2xl font-black">Adjust Dumbbell Weights</h1>
+              <p className="text-slate-400 text-xs leading-relaxed max-w-sm mx-auto">
+                Set your target dumbbell weights in pounds (lbs) for this training flow.
+              </p>
+            </div>
+
+            {/* Weighted exercises list */}
+            <div className="space-y-3.5 max-h-64 overflow-y-auto pr-1">
+              {routine.exercises.map((ex) => {
+                if (!ex.needsWeight) return null;
+                const currentWeight = weights[ex.id] || 10;
+
+                const adjustWeight = (delta: number) => {
+                  setWeights((prev) => ({
+                    ...prev,
+                    [ex.id]: Math.max(2, currentWeight + delta) // minimum 2 lbs
+                  }));
+                };
+
+                return (
+                  <div key={ex.id} className="p-3.5 bg-slate-950/60 border border-slate-850 rounded-2xl flex items-center justify-between">
+                    <div className="min-w-0 pr-3">
+                      <h4 className="font-bold text-sm text-white truncate">{ex.name}</h4>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Recommended: {ex.weightLbs || 10} lbs</p>
+                    </div>
+
+                    <div className="flex items-center space-x-3.5">
+                      <button
+                        type="button"
+                        onClick={() => adjustWeight(-2)}
+                        className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-200 font-black text-sm flex items-center justify-center transition-colors hover:text-white"
+                      >
+                        -
+                      </button>
+                      <span className="font-mono text-sm font-black text-indigo-400 w-16 text-center">
+                        {currentWeight} lbs
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => adjustWeight(2)}
+                        className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-200 font-black text-sm flex items-center justify-center transition-colors hover:text-white"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => {
+                setCurrentStep('intro');
+                setTimeLeft(5);
+              }}
+              className="w-full py-4 rounded-xl bg-gradient-to-r from-indigo-650 to-violet-650 hover:from-indigo-600 hover:to-violet-600 text-white font-extrabold tracking-wide text-sm transition-all shadow-lg active:scale-95 cursor-pointer"
+            >
+              Confirm Weights & Start Warmup
+            </button>
+          </div>
+        )}
+
+        {/* STEP: Intro countdown */}
         {currentStep === 'intro' && (
           <div className="text-center space-y-6 animate-pulse">
             <div className="text-indigo-400 font-bold tracking-widest uppercase text-sm sm:text-base">
@@ -290,8 +390,10 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
           </div>
         )}
 
+        {/* STEP: Active exercise playing */}
         {currentStep === 'active' && currentExercise && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full max-w-5xl items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full max-w-5xl items-center px-4">
+            
             {/* Exercise Instructions Card */}
             <div className="bg-slate-900/60 border border-slate-800 p-6 sm:p-8 rounded-2xl space-y-6">
               <div>
@@ -319,20 +421,20 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
               </div>
             </div>
 
-            {/* Circular Timer Visuals */}
+            {/* Circular Timer & Controls */}
             <div className="flex flex-col items-center justify-center space-y-6">
+              
+              {/* Dumbbell Weight Pill Indicator */}
+              {currentExercise.needsWeight && (
+                <div className="px-4 py-2 rounded-full bg-indigo-950/60 border border-indigo-800 text-xs font-extrabold text-indigo-300 flex items-center space-x-2 shadow-lg shadow-indigo-950/30">
+                  <Dumbbell className="w-4.5 h-4.5" />
+                  <span>Dumbbells: {weights[currentExercise.id]} lbs</span>
+                </div>
+              )}
+
               <div className="relative w-64 h-64 md:w-72 md:h-72">
                 <svg width="100%" height="100%" viewBox="0 0 200 200" className="transform -rotate-90">
-                  {/* Gray Background Circle */}
-                  <circle
-                    cx="100"
-                    cy="100"
-                    r="90"
-                    fill="transparent"
-                    stroke="#1e293b"
-                    strokeWidth="8"
-                  />
-                  {/* Glowing Animated Outer Ring */}
+                  <circle cx="100" cy="100" r="90" fill="transparent" stroke="#1e293b" strokeWidth="8" />
                   <circle
                     cx="100"
                     cy="100"
@@ -345,7 +447,6 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
                     strokeLinecap="round"
                     className="transition-all duration-1000 ease-linear"
                   />
-                  {/* Gradient Definition */}
                   <defs>
                     <linearGradient id="timerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                       <stop offset="0%" stopColor="#818cf8" />
@@ -354,7 +455,6 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
                   </defs>
                 </svg>
 
-                {/* Inner Text Timer */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
                   <span className="text-6xl md:text-7xl font-black font-mono leading-none">
                     {timeLeft}
@@ -392,6 +492,7 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
           </div>
         )}
 
+        {/* STEP: Rest break between exercises */}
         {currentStep === 'rest' && (
           <div className="text-center space-y-8 max-w-md w-full px-4">
             <div className="space-y-2">
@@ -401,7 +502,6 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
               <h1 className="text-4xl sm:text-5xl font-black">Catch Your Breath</h1>
             </div>
 
-            {/* Circular Rest Timer */}
             <div className="relative w-40 h-40 mx-auto">
               <svg width="100%" height="100%" viewBox="0 0 100 100" className="transform -rotate-90">
                 <circle cx="50" cy="50" r="44" fill="transparent" stroke="#1e293b" strokeWidth="4" />
@@ -431,9 +531,14 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
                   <h3 className="text-lg font-bold text-white truncate">
                     {routine.exercises[exerciseIndex + 1].name}
                   </h3>
-                  <p className="text-xs text-slate-400 truncate">
-                    Duration: {routine.exercises[exerciseIndex + 1].duration}s
-                  </p>
+                  <div className="flex items-center space-x-2 mt-0.5 text-xs text-slate-450">
+                    <span>Duration: {routine.exercises[exerciseIndex + 1].duration}s</span>
+                    {routine.exercises[exerciseIndex + 1].needsWeight && (
+                      <span className="text-indigo-400 font-bold bg-indigo-950/65 px-1.5 py-0.2 rounded border border-indigo-900/30">
+                        🏋️ {weights[routine.exercises[exerciseIndex + 1].id]} lbs
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <button
                   onClick={handleSkip}
@@ -446,6 +551,7 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
           </div>
         )}
 
+        {/* STEP: Summary completion details */}
         {currentStep === 'complete' && (
           <div className="bg-slate-900 border border-indigo-950 max-w-lg w-full rounded-3xl p-6 sm:p-8 space-y-6 text-center shadow-2xl relative overflow-hidden">
             <div className="absolute -top-12 -left-12 w-48 h-48 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
@@ -465,7 +571,7 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
               <p className="text-slate-400 text-sm mt-1">Excellent dedication. Here are your stats:</p>
             </div>
 
-            {/* Completion stats list */}
+            {/* Stats row */}
             <div className="grid grid-cols-3 gap-3 bg-slate-950/60 border border-slate-800 p-4 rounded-2xl">
               <div className="flex flex-col items-center py-2">
                 <Timer className="w-5 h-5 text-indigo-400 mb-1" />
@@ -490,6 +596,24 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
               </div>
             </div>
 
+            {/* List weights used */}
+            {hasWeightedExercises && (
+              <div className="bg-slate-950/40 border border-slate-850 p-3.5 rounded-2xl text-left space-y-2">
+                <span className="text-[10px] text-slate-400 uppercase tracking-widest font-black block">Dumbbell Weights Log</span>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                  {routine.exercises.map((ex) => {
+                    if (!ex.needsWeight) return null;
+                    return (
+                      <div key={ex.id} className="flex justify-between border-b border-slate-900/50 pb-0.5">
+                        <span className="text-slate-350 truncate">{ex.name}</span>
+                        <span className="font-bold font-mono text-indigo-400">{weights[ex.id]} lbs</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-col items-center bg-indigo-950/20 border border-indigo-900/30 rounded-xl py-3 px-4">
               <span className="text-xs text-indigo-300 font-bold uppercase tracking-wider">
                 Total Reward Earned
@@ -501,7 +625,7 @@ export default function WorkoutPlayer({ routine, onComplete, onClose }: WorkoutP
 
             <button
               onClick={handleSave}
-              className="w-full py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold tracking-wide text-sm transition-all transform active:scale-95 shadow-xl shadow-indigo-600/25"
+              className="w-full py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold tracking-wide text-sm transition-all transform active:scale-95 shadow-xl shadow-indigo-600/25 cursor-pointer"
             >
               Finish & Log Workout
             </button>

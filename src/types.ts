@@ -5,6 +5,8 @@ export interface Exercise {
   description: string;
   instructions: string[];
   type: 'workout' | 'stretch';
+  needsWeight?: boolean;
+  weightLbs?: number;
 }
 
 export interface Routine {
@@ -27,6 +29,7 @@ export interface WorkoutLog {
   exercisesCompleted: number;
   caloriesBurned: number;
   xpEarned: number;
+  weightsUsed?: { [exerciseName: string]: number };
 }
 
 export interface UserProfile {
