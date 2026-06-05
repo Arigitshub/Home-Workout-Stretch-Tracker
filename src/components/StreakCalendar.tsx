@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Flame, Award, Calendar, Plus, X, Dumbbell } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Flame, Award, Calendar, X, Dumbbell } from 'lucide-react';
 import { WorkoutLog, Routine } from '../types';
 
 interface StreakCalendarProps {

@@ -84,9 +84,10 @@ export default function AuthSection({
       setEmail('');
       setPin('');
       setPhone('');
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      setError(err.message || 'Authentication failed. Please try again.');
+      const errorMessage = err instanceof Error ? err.message : 'Authentication failed. Please try again.';
+      setError(errorMessage);
       // If we failed after setting local storage, revert it
       localStorage.removeItem('fittrack_user_id');
       localStorage.removeItem('fittrack_user_email');
