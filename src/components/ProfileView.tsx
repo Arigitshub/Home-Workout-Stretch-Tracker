@@ -15,6 +15,7 @@ interface ProfileViewProps {
   onAuthSuccess: (userId: string, email: string, phone: string) => void;
   onSignOut: () => void;
   onRefreshData: () => Promise<void>;
+  onRetakeOnboarding: () => void;
 }
 
 export default function ProfileView({
@@ -27,7 +28,8 @@ export default function ProfileView({
   onUpdateProfile,
   onAuthSuccess,
   onSignOut,
-  onRefreshData
+  onRefreshData,
+  onRetakeOnboarding
 }: ProfileViewProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(profile.name);
@@ -310,6 +312,31 @@ export default function ProfileView({
             <div className="flex justify-between py-2 border-b border-gray-50 dark:border-gray-700/60">
               <span className="text-gray-400 font-semibold">Voice Pitch Tone</span>
               <span className="font-bold text-gray-855 dark:text-white">{profile.voicePitch ?? 1.0} pitch</span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-gray-50 dark:border-gray-700/60">
+              <span className="text-gray-400 font-semibold">Training Location</span>
+              <span className="font-bold text-gray-855 dark:text-white capitalize">{profile.location || 'home'}</span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-gray-50 dark:border-gray-700/60">
+              <span className="text-gray-400 font-semibold">Available Equipment</span>
+              <span className="font-bold text-gray-855 dark:text-white capitalize">
+                {profile.equipment && profile.equipment.length > 0 ? profile.equipment.join(', ') : 'Bodyweight Only'}
+              </span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-gray-50 dark:border-gray-700/60 sm:col-span-2">
+              <span className="text-gray-400 font-semibold">Fitness Focus Goals</span>
+              <span className="font-bold text-gray-855 dark:text-white capitalize">
+                {profile.fitnessGoals && profile.fitnessGoals.length > 0 ? profile.fitnessGoals.join(', ') : 'None Set'}
+              </span>
+            </div>
+            <div className="sm:col-span-2 flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={onRetakeOnboarding}
+                className="text-xs font-bold text-indigo-650 hover:text-indigo-500 bg-indigo-50 dark:bg-indigo-950/40 px-3.5 py-2 rounded-xl border border-indigo-100 dark:border-indigo-900/40 transition-colors flex items-center"
+              >
+                <Settings className="w-3.5 h-3.5 mr-1.5" /> Retake Training Quiz
+              </button>
             </div>
           </div>
         )}

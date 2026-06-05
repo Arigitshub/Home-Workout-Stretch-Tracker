@@ -41,5 +41,8 @@ export interface UserProfile {
   unlockedBadges?: string[];
   voiceRate?: number;
   voicePitch?: number;
+  location?: 'home' | 'gym' | 'any';
+  equipment?: string[];
+  fitnessGoals?: string[];
 }
 

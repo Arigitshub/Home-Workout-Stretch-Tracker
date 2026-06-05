@@ -9,6 +9,7 @@ import ProfileView from './components/ProfileView';
 import ActivityRings from './components/ActivityRings';
 import CelebrationModal from './components/CelebrationModal';
 import StreakCalendar from './components/StreakCalendar';
+import OnboardingModal from './components/OnboardingModal';
 
 import { predefinedRoutines } from './data/routines';
 import { Routine, WorkoutLog, UserProfile } from './types';
@@ -38,6 +39,8 @@ export default function App() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(() => localStorage.getItem('fittrack_user_id'));
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(() => localStorage.getItem('fittrack_user_email'));
   const [currentUserPhone, setCurrentUserPhone] = useState<string | null>(() => localStorage.getItem('fittrack_user_phone'));
+
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
 
   // Database / Local Cache state
   const [logs, setLogs] = useState<WorkoutLog[]>(() => {
@@ -159,6 +162,15 @@ export default function App() {
     localStorage.setItem('fittrack_profile', JSON.stringify(profile));
   }, [profile]);
 
+  // Show Onboarding Modal if preferences are not set
+  useEffect(() => {
+    if (profile && (!profile.location || !profile.fitnessGoals || profile.fitnessGoals.length === 0)) {
+      setShowOnboarding(true);
+    } else {
+      setShowOnboarding(false);
+    }
+  }, [profile]);
+
   useEffect(() => {
     localStorage.setItem('fittrack_dark_mode', String(darkMode));
     if (darkMode) {
@@ -170,6 +182,61 @@ export default function App() {
 
   // Combine predefined and custom routines
   const allRoutines = [...predefinedRoutines, ...customRoutines];
+
+  // Scoring/Recommendation algorithm based on onboarding quiz
+  const getRecommendedRoutines = () => {
+    const equipPref = profile.equipment || [];
+    const goalsPref = profile.fitnessGoals || [];
+
+    const scored = allRoutines.map((routine) => {
+      let score = 0;
+
+      // 1. Equipment matching
+      const needsWeights = routine.exercises.some((e) => e.needsWeight);
+      const hasDumbbells = equipPref.includes('dumbbells');
+      if (needsWeights) {
+        if (hasDumbbells) {
+          score += 3;
+        } else {
+          score -= 5; // Penalty if weights are needed but user doesn't have them
+        }
+      } else {
+        if (!hasDumbbells) {
+          score += 1; // Default to bodyweight
+        }
+      }
+
+      // 2. Goal matching
+      const titleLower = routine.title.toLowerCase();
+      const descLower = routine.description.toLowerCase();
+
+      goalsPref.forEach((goal) => {
+        if (goal === 'strength') {
+          if (titleLower.includes('strength') || titleLower.includes('power') || titleLower.includes('tone') || needsWeights) {
+            score += 3;
+          }
+        } else if (goal === 'flexibility') {
+          if (titleLower.includes('stretch') || titleLower.includes('yoga') || titleLower.includes('flow') || titleLower.includes('flexibility')) {
+            score += 3;
+          }
+        } else if (goal === 'core') {
+          if (titleLower.includes('core') || titleLower.includes('stabiliz') || titleLower.includes('ab')) {
+            score += 3;
+          }
+        } else if (goal === 'cardio') {
+          if (titleLower.includes('hiit') || titleLower.includes('cardio') || descLower.includes('intervals') || descLower.includes('heart rate')) {
+            score += 3;
+          }
+        }
+      });
+
+      return { routine, score };
+    });
+
+    return scored
+      .sort((a, b) => b.score - a.score)
+      .map((x) => x.routine);
+  };
 
   // Helper stats for dashboard
   const getTodayStats = () => {
@@ -516,7 +583,9 @@ export default function App() {
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400">
-                    Today's Quick Routines
+                    {profile.location && profile.fitnessGoals && profile.fitnessGoals.length > 0 
+                      ? "Recommended for You Today 🎯" 
+                      : "Today's Quick Routines"}
                   </h3>
                   <button
                     onClick={() => setActiveTab('workouts')}
@@ -526,7 +595,7 @@ export default function App() {
                   </button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {allRoutines.slice(0, 3).map((workout) => (
+                  {getRecommendedRoutines().slice(0, 3).map((workout) => (
                     <WorkoutCard
                       key={workout.id}
                       title={workout.title}
@@ -654,6 +723,7 @@ export default function App() {
                 onAuthSuccess={handleAuthSuccess}
                 onSignOut={handleSignOut}
                 onRefreshData={loadDataFromServer}
+                onRetakeOnboarding={() => setShowOnboarding(true)}
               />
             </div>
           )}
@@ -662,6 +732,24 @@ export default function App() {
 
       {/* Global Tab Navbar */}
       <Navbar activeTab={activeTab} onTabChange={setActiveTab} />
+
+      {/* Onboarding Questionnaire Modal */}
+      {showOnboarding && (
+        <OnboardingModal
+          profile={profile}
+          onSave={async (updatedProfile) => {
+            setProfile(updatedProfile);
+            setShowOnboarding(false);
+            try {
+              if (dbConnected) {
+                await updateProfileOnServer(updatedProfile);
+              }
+            } catch (err) {
+              console.error('Failed to save onboarding settings to database:', err);
+            }
+          }}
+        />
+      )}
 
       {/* Achievement Unlocked Celebration Popup Overlay */}
       {newlyUnlockedBadges && (

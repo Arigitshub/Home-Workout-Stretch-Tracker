@@ -74,10 +74,21 @@ async function initDb() {
       ALTER TABLE user_profile ADD COLUMN IF NOT EXISTS unlocked_badges JSONB DEFAULT '[]'::jsonb;
     `);
 
+    // Alter user_profile to add user_id and voice settings if they don't exist
+    await client.query(`
+      ALTER TABLE user_profile ADD COLUMN IF NOT EXISTS user_id INTEGER UNIQUE REFERENCES app_users(id);
+      ALTER TABLE user_profile ADD COLUMN IF NOT EXISTS voice_rate REAL DEFAULT 1.0;
+      ALTER TABLE user_profile ADD COLUMN IF NOT EXISTS voice_pitch REAL DEFAULT 1.0;
+      ALTER TABLE user_profile ADD COLUMN IF NOT EXISTS unlocked_badges JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE user_profile ADD COLUMN IF NOT EXISTS location VARCHAR(50) DEFAULT 'home';
+      ALTER TABLE user_profile ADD COLUMN IF NOT EXISTS equipment JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE user_profile ADD COLUMN IF NOT EXISTS fitness_goals JSONB DEFAULT '[]'::jsonb;
+    `);
+
     // Insert default profile if not exists (fallback row)
     await client.query(`
-      INSERT INTO user_profile (id, name, xp, daily_minutes_goal, daily_stretches_goal, weight_kg, unlocked_badges)
-      VALUES (1, 'Champion Athlete', 0, 15, 1, 70, '[]'::jsonb)
+      INSERT INTO user_profile (id, name, xp, daily_minutes_goal, daily_stretches_goal, weight_kg, unlocked_badges, location, equipment, fitness_goals)
+      VALUES (1, 'Champion Athlete', 0, 15, 1, 70, '[]'::jsonb, 'home', '[]'::jsonb, '[]'::jsonb)
       ON CONFLICT (id) DO NOTHING;
     `);
 
@@ -152,8 +163,8 @@ app.post('/api/auth/signup', async (req, res) => {
 
     // Seed default profile for this new user
     await pool.query(
-      `INSERT INTO user_profile (id, user_id, name, xp, daily_minutes_goal, daily_stretches_goal, weight_kg, unlocked_badges, voice_rate, voice_pitch)
-       VALUES ($1, $1, 'Champion Athlete', 0, 15, 1, 70, '[]'::jsonb, 1.0, 1.0)
+      `INSERT INTO user_profile (id, user_id, name, xp, daily_minutes_goal, daily_stretches_goal, weight_kg, unlocked_badges, voice_rate, voice_pitch, location, equipment, fitness_goals)
+       VALUES ($1, $1, 'Champion Athlete', 0, 15, 1, 70, '[]'::jsonb, 1.0, 1.0, 'home', '[]'::jsonb, '[]'::jsonb)
        ON CONFLICT (id) DO UPDATE SET user_id = EXCLUDED.user_id`,
       [user.id]
     );
@@ -217,8 +228,8 @@ app.post('/api/auth/sync', async (req, res) => {
         await pool.query(
           `UPDATE user_profile 
            SET name = $1, xp = $2, daily_minutes_goal = $3, daily_stretches_goal = $4, weight_kg = $5, 
-               unlocked_badges = $6, voice_rate = $7, voice_pitch = $8
-           WHERE user_id = $9`,
+               unlocked_badges = $6, voice_rate = $7, voice_pitch = $8, location = $9, equipment = $10, fitness_goals = $11
+           WHERE user_id = $12`,
           [
             profile.name,
             profile.xp,
@@ -228,6 +239,9 @@ app.post('/api/auth/sync', async (req, res) => {
             JSON.stringify(profile.unlockedBadges || []),
             profile.voiceRate || 1.0,
             profile.voicePitch || 1.0,
+            profile.location || 'home',
+            JSON.stringify(profile.equipment || []),
+            JSON.stringify(profile.fitnessGoals || []),
             userId
           ]
         );
@@ -237,7 +251,7 @@ app.post('/api/auth/sync', async (req, res) => {
           await pool.query(
             `UPDATE user_profile 
              SET user_id = $1, name = $2, xp = $3, daily_minutes_goal = $4, daily_stretches_goal = $5, 
-                 weight_kg = $6, unlocked_badges = $7, voice_rate = $8, voice_pitch = $9
+                 weight_kg = $6, unlocked_badges = $7, voice_rate = $8, voice_pitch = $9, location = $10, equipment = $11, fitness_goals = $12
              WHERE id = $1`,
             [
               userId,
@@ -248,13 +262,16 @@ app.post('/api/auth/sync', async (req, res) => {
               profile.weightKg,
               JSON.stringify(profile.unlockedBadges || []),
               profile.voiceRate || 1.0,
-              profile.voicePitch || 1.0
+              profile.voicePitch || 1.0,
+              profile.location || 'home',
+              JSON.stringify(profile.equipment || []),
+              JSON.stringify(profile.fitnessGoals || [])
             ]
           );
         } else {
           await pool.query(
-            `INSERT INTO user_profile (id, user_id, name, xp, daily_minutes_goal, daily_stretches_goal, weight_kg, unlocked_badges, voice_rate, voice_pitch)
-             VALUES ($1, $1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            `INSERT INTO user_profile (id, user_id, name, xp, daily_minutes_goal, daily_stretches_goal, weight_kg, unlocked_badges, voice_rate, voice_pitch, location, equipment, fitness_goals)
+             VALUES ($1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
             [
               userId,
               profile.name,
@@ -264,7 +281,10 @@ app.post('/api/auth/sync', async (req, res) => {
               profile.weightKg,
               JSON.stringify(profile.unlockedBadges || []),
               profile.voiceRate || 1.0,
-              profile.voicePitch || 1.0
+              profile.voicePitch || 1.0,
+              profile.location || 'home',
+              JSON.stringify(profile.equipment || []),
+              JSON.stringify(profile.fitnessGoals || [])
             ]
           );
         }
@@ -352,7 +372,8 @@ app.get('/api/profile', async (req, res) => {
   try {
     let result = await pool.query(
       `SELECT name, xp, daily_minutes_goal as "dailyMinutesGoal", daily_stretches_goal as "dailyStretchesGoal", 
-              weight_kg as "weightKg", unlocked_badges as "unlockedBadges", voice_rate as "voiceRate", voice_pitch as "voicePitch" 
+              weight_kg as "weightKg", unlocked_badges as "unlockedBadges", voice_rate as "voiceRate", 
+              voice_pitch as "voicePitch", location, equipment, fitness_goals as "fitnessGoals" 
        FROM user_profile 
        WHERE user_id = $1`,
       [userId]
@@ -361,14 +382,15 @@ app.get('/api/profile', async (req, res) => {
     if (result.rows.length === 0) {
       // Seed default profile for this user on-the-fly if it was somehow skipped
       await pool.query(
-        `INSERT INTO user_profile (id, user_id, name, xp, daily_minutes_goal, daily_stretches_goal, weight_kg, unlocked_badges, voice_rate, voice_pitch)
-         VALUES ($1, $1, 'Champion Athlete', 0, 15, 1, 70, '[]'::jsonb, 1.0, 1.0)
+        `INSERT INTO user_profile (id, user_id, name, xp, daily_minutes_goal, daily_stretches_goal, weight_kg, unlocked_badges, voice_rate, voice_pitch, location, equipment, fitness_goals)
+         VALUES ($1, $1, 'Champion Athlete', 0, 15, 1, 70, '[]'::jsonb, 1.0, 1.0, 'home', '[]'::jsonb, '[]'::jsonb)
          ON CONFLICT (id) DO UPDATE SET user_id = EXCLUDED.user_id`,
         [userId]
       );
       result = await pool.query(
         `SELECT name, xp, daily_minutes_goal as "dailyMinutesGoal", daily_stretches_goal as "dailyStretchesGoal", 
-                weight_kg as "weightKg", unlocked_badges as "unlockedBadges", voice_rate as "voiceRate", voice_pitch as "voicePitch" 
+                weight_kg as "weightKg", unlocked_badges as "unlockedBadges", voice_rate as "voiceRate", 
+                voice_pitch as "voicePitch", location, equipment, fitness_goals as "fitnessGoals" 
          FROM user_profile 
          WHERE user_id = $1`,
         [userId]
@@ -386,16 +408,17 @@ app.put('/api/profile', async (req, res) => {
   if (!userId) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
-  const { name, xp, dailyMinutesGoal, dailyStretchesGoal, weightKg, unlockedBadges, voiceRate, voicePitch } = req.body;
+  const { name, xp, dailyMinutesGoal, dailyStretchesGoal, weightKg, unlockedBadges, voiceRate, voicePitch, location, equipment, fitnessGoals } = req.body;
   try {
     const result = await pool.query(
       `UPDATE user_profile 
        SET name = $1, xp = $2, daily_minutes_goal = $3, daily_stretches_goal = $4, weight_kg = $5, 
-           unlocked_badges = $6, voice_rate = $7, voice_pitch = $8 
-       WHERE user_id = $9 
+           unlocked_badges = $6, voice_rate = $7, voice_pitch = $8, location = $9, equipment = $10, fitness_goals = $11 
+       WHERE user_id = $12 
        RETURNING name, xp, daily_minutes_goal as "dailyMinutesGoal", daily_stretches_goal as "dailyStretchesGoal", 
-                 weight_kg as "weightKg", unlocked_badges as "unlockedBadges", voice_rate as "voiceRate", voice_pitch as "voicePitch"`,
-      [name, xp, dailyMinutesGoal, dailyStretchesGoal, weightKg, JSON.stringify(unlockedBadges || []), voiceRate || 1.0, voicePitch || 1.0, userId]
+                 weight_kg as "weightKg", unlocked_badges as "unlockedBadges", voice_rate as "voiceRate", 
+                 voice_pitch as "voicePitch", location, equipment, fitness_goals as "fitnessGoals"`,
+      [name, xp, dailyMinutesGoal, dailyStretchesGoal, weightKg, JSON.stringify(unlockedBadges || []), voiceRate || 1.0, voicePitch || 1.0, location || 'home', JSON.stringify(equipment || []), JSON.stringify(fitnessGoals || []), userId]
     );
     res.json(result.rows[0]);
   } catch (err) {
