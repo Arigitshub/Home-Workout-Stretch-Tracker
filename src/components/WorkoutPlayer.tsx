@@ -55,6 +55,45 @@ function getRestBreathingInfo(time: number) {
   }
 }
 
+function getAiCoachingTip(exerciseName: string, elapsedSecs: number, totalSecs: number): string | null {
+  const name = exerciseName.toLowerCase();
+  
+  // Midpoint posture checks (announced exactly halfway through)
+  const isMidpoint = elapsedSecs === Math.floor(totalSecs / 2);
+  if (!isMidpoint) return null;
+  
+  if (name.includes('squat')) {
+    return "Check your form: Keep your hips back, chest proud, and weight on your heels.";
+  }
+  if (name.includes('plank')) {
+    return "Keep your core braced tightly. Make sure your hips aren't sagging or lifting too high.";
+  }
+  if (name.includes('push-up') || name.includes('pushup')) {
+    return "Keep your elbows at a 45-degree angle. Push the ground away with full control.";
+  }
+  if (name.includes('lunge')) {
+    return "Keep your torso upright. Drive up through your front heel.";
+  }
+  if (name.includes('downward dog') || name.includes('downward-dog') || name.includes('dog')) {
+    return "Push your hips up and back. Press your heels down toward the mat.";
+  }
+  if (name.includes('cobra')) {
+    return "Relax your shoulders down. Lift gently through your chest.";
+  }
+  if (name.includes('cat-cow') || name.includes('cat cow')) {
+    return "Match your movement to your breath. Inhale to arch, exhale to round your back.";
+  }
+  if (name.includes('crunch') || name.includes('twist') || name.includes('ab')) {
+    return "Focus on contracting your abdominals. Do not pull on your neck.";
+  }
+  if (name.includes('jack') || name.includes('jumping') || name.includes('climber') || name.includes('knee')) {
+    return "Stay light on your feet! Keep a steady, fast pace.";
+  }
+  
+  // Generic motivational tip
+  return "You are halfway there. Keep breathing and stay focused.";
+}
+
 interface WorkoutPlayerProps {
   routine: Routine;
   profile?: UserProfile;
@@ -78,6 +117,7 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
   const [timeLeft, setTimeLeft] = useState(5); // 5s intro countdown
   const [isPaused, setIsPaused] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [coachCaption, setCoachCaption] = useState<string | null>(null);
 
   // Map of exercise ID -> configured weight in lbs
   const [weights, setWeights] = useState<{ [exId: string]: number }>(() => {
@@ -357,6 +397,42 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
   const progressPct = currentStep === 'active' ? (timeLeft / totalDuration) : 1;
   const strokeDashoffset = 2 * Math.PI * 90 * (1 - progressPct);
 
+  // Dynamic simulated heart rate (BPM)
+  const getSimulatedHeartRate = () => {
+    if (isPaused) return 70;
+    
+    if (currentStep === 'intro' || currentStep === 'setup_weight' || currentStep === 'complete') {
+      return 70;
+    }
+    
+    const totalDurationVal = currentStep === 'active' && currentExercise ? currentExercise.duration : 10;
+    
+    if (currentStep === 'active' && currentExercise) {
+      const isCardio = currentExercise.name.toLowerCase().includes('jack') || 
+                       currentExercise.name.toLowerCase().includes('climber') || 
+                       currentExercise.name.toLowerCase().includes('knee') ||
+                       currentExercise.name.toLowerCase().includes('hiit') ||
+                       currentExercise.name.toLowerCase().includes('squat');
+      const baseBpm = currentExercise.type === 'workout' ? (isCardio ? 110 : 95) : 65;
+      const peakBpm = currentExercise.type === 'workout' ? (isCardio ? 165 : 130) : 75;
+      
+      // Heart rate ramps up over the duration of the exercise
+      const elapsedFraction = (totalDurationVal - timeLeft) / totalDurationVal;
+      return Math.round(baseBpm + (peakBpm - baseBpm) * elapsedFraction);
+    }
+    
+    if (currentStep === 'rest') {
+      // Recovery heart rate goes down from 135 to 82 BPM
+      const elapsedFraction = (10 - timeLeft) / 10;
+      return Math.round(135 - (135 - 82) * elapsedFraction);
+    }
+    
+    return 70;
+  };
+
+  const bpm = getSimulatedHeartRate();
+  const pulseDuration = `${60 / bpm}s`;
+
   // Derived properties for active instruction steps
   const elapsed = Math.max(0, totalDuration - timeLeft);
   const instructionsCount = currentExercise && currentExercise.instructions ? currentExercise.instructions.length : 1;
@@ -396,6 +472,21 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
         speakText("Hold your breath.");
       } else if (timeLeft === 4) {
         speakText("Exhale slowly.");
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeLeft, currentStep]);
+
+  // AI Coaching Posture Tips
+  useEffect(() => {
+    if (currentStep === 'active' && currentExercise) {
+      const elapsed = totalDuration - timeLeft;
+      const tip = getAiCoachingTip(currentExercise.name, elapsed, totalDuration);
+      if (tip) {
+        speakText(tip);
+        setCoachCaption(tip);
+        const timer = setTimeout(() => setCoachCaption(null), 5000);
+        return () => clearTimeout(timer);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -733,6 +824,19 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
                   </defs>
                 </svg>
 
+                {/* Heart Rate Neon Badge */}
+                <div 
+                  className="absolute -top-3.5 left-1/2 transform -translate-x-1/2 px-3 py-1 rounded-full bg-slate-950/90 border border-rose-500/30 text-[10px] font-black text-rose-455 flex items-center space-x-1.5 shadow-lg shadow-rose-950/20 backdrop-blur z-30"
+                >
+                  <span 
+                    className="inline-block text-rose-550 animate-pulse" 
+                    style={{ animationDuration: pulseDuration }}
+                  >
+                    ❤️
+                  </span>
+                  <span className="font-mono">{bpm} BPM</span>
+                </div>
+
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center z-20">
                   <span className="text-6xl md:text-7xl font-black font-mono leading-none">
                     {timeLeft}
@@ -740,6 +844,19 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
                   <span className="text-xs uppercase tracking-widest text-slate-400 mt-2 font-bold">
                     Seconds Left
                   </span>
+
+                  {/* Neon Pulse ECG Wave */}
+                  <svg className="w-16 h-6 text-rose-500/40 opacity-75 mt-2.5 pointer-events-none" viewBox="0 0 100 30" fill="none">
+                    <path 
+                      d="M0,15 L30,15 L35,5 L40,25 L45,12 L48,18 L53,15 L100,15" 
+                      stroke="currentColor" 
+                      strokeWidth="1.5" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round"
+                      className="animate-pulse"
+                      style={{ animationDuration: pulseDuration }}
+                    />
+                  </svg>
                 </div>
               </div>
 
@@ -785,6 +902,19 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
 
               {/* Dynamic Breathing Recovery Ring */}
               <div className="relative w-56 h-56 mx-auto flex items-center justify-center">
+                {/* Heart Rate Neon Badge in Rest Mode */}
+                <div 
+                  className="absolute -top-3.5 left-1/2 transform -translate-x-1/2 px-3 py-1 rounded-full bg-slate-950/90 border border-rose-500/30 text-[10px] font-black text-rose-455 flex items-center space-x-1.5 shadow-lg shadow-rose-950/20 backdrop-blur z-30"
+                >
+                  <span 
+                    className="inline-block text-rose-550 animate-pulse" 
+                    style={{ animationDuration: pulseDuration }}
+                  >
+                    ❤️
+                  </span>
+                  <span className="font-mono">{bpm} BPM</span>
+                </div>
+
                 {/* Glowing breathing aura backdrop */}
                 <div 
                   className={`absolute inset-4 rounded-full bg-gradient-to-tr ${breathInfo.bgColor} blur-xl transition-all duration-1000 transform opacity-65`}
@@ -956,6 +1086,14 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
                 : 'Completion'}
             </span>
           </div>
+        </div>
+      )}
+
+      {/* AI Coach Caption Subtitle Overlay */}
+      {coachCaption && (
+        <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 z-40 bg-indigo-950/90 border border-indigo-550/40 text-indigo-200 px-5 py-2.5 rounded-2xl text-xs text-center max-w-xs sm:max-w-md shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-300 font-medium leading-relaxed flex items-center space-x-2 border-l-4 border-l-indigo-500">
+          <span className="text-amber-400 animate-pulse flex-shrink-0">🎙️ AI Coach:</span>
+          <span className="text-left">{coachCaption}</span>
         </div>
       )}
       </div>
