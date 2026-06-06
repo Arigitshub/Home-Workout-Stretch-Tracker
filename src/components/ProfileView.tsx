@@ -349,7 +349,7 @@ export default function ProfileView({
           Achievement Badges Unlocked ({profile.unlockedBadges?.length || 0} / {badgesList.length})
         </h3>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 perspective-card">
           {badgesList.map((badge) => {
             const isUnlocked = profile.unlockedBadges?.includes(badge.id);
             const Icon = badge.icon;
@@ -357,13 +357,13 @@ export default function ProfileView({
             return (
               <div
                 key={badge.id}
-                className={`p-4 rounded-2xl border flex items-center space-x-3 transition-all duration-300 ${
+                className={`p-4 rounded-2xl border flex items-center space-x-3 transition-all duration-300 badge-3d-item ${
                   isUnlocked
                     ? 'bg-slate-55 dark:bg-slate-900/25 border-gray-200 dark:border-gray-700/80 shadow-xs'
                     : 'bg-gray-50/50 dark:bg-slate-900/5 border-dashed border-gray-200 dark:border-gray-800/80 opacity-50'
                 }`}
               >
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white flex-shrink-0 shadow-xs bg-gradient-to-br ${
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white flex-shrink-0 shadow-xs bg-gradient-to-br badge-icon-glow ${
                   isUnlocked ? badge.colorClass : 'from-slate-400 to-slate-500 grayscale'
                 }`}>
                   <Icon className="w-5.5 h-5.5" />

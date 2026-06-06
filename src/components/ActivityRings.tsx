@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react';
+
 interface ActivityRingsProps {
   minutesCompleted: number;
   minutesGoal: number;
@@ -24,26 +26,42 @@ export default function ActivityRings({
   const r1 = 75;
   const circ1 = 2 * Math.PI * r1;
   const pct1 = Math.min(minutesCompleted / (minutesGoal || 1), 1);
-  const strokeDashoffset1 = circ1 - pct1 * circ1;
 
   // Ring 2 (Stretches) - Middle
   const r2 = 58;
   const circ2 = 2 * Math.PI * r2;
   const pct2 = Math.min(stretchesCompleted / (stretchesGoal || 1), 1);
-  const strokeDashoffset2 = circ2 - pct2 * circ2;
 
   // Ring 3 (Calories) - Inner
   const r3 = 41;
   const circ3 = 2 * Math.PI * r3;
   const pct3 = Math.min(caloriesBurned / (caloriesGoal || 1), 1);
-  const strokeDashoffset3 = circ3 - pct3 * circ3;
+
+  const [animatedPct, setAnimatedPct] = useState({ p1: 0, p2: 0, p3: 0 });
+
+  useEffect(() => {
+    // Reset to 0 first to ensure animation triggers if props change
+    setAnimatedPct({ p1: 0, p2: 0, p3: 0 });
+    const t1 = setTimeout(() => setAnimatedPct((prev) => ({ ...prev, p1: pct1 })), 100);
+    const t2 = setTimeout(() => setAnimatedPct((prev) => ({ ...prev, p2: pct2 })), 350);
+    const t3 = setTimeout(() => setAnimatedPct((prev) => ({ ...prev, p3: pct3 })), 600);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, [pct1, pct2, pct3]);
+
+  const strokeDashoffset1 = circ1 - animatedPct.p1 * circ1;
+  const strokeDashoffset2 = circ2 - animatedPct.p2 * circ2;
+  const strokeDashoffset3 = circ3 - animatedPct.p3 * circ3;
 
   return (
     <div className="flex flex-col sm:flex-row items-center justify-around bg-gradient-to-br from-indigo-900/40 to-slate-900/50 backdrop-blur-md border border-white/10 p-6 rounded-2xl shadow-xl dark:border-white/5">
       {/* Rings Visual */}
       <div className="relative" style={{ width: size, height: size }}>
         <svg width={size} height={size} className="transform -rotate-90">
-          {/* Defs for gradients */}
+          {/* Defs for gradients and glow filters */}
           <defs>
             <linearGradient id="minutesGrad" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#818cf8" /> {/* Indigo-400 */}
@@ -57,6 +75,13 @@ export default function ActivityRings({
               <stop offset="0%" stopColor="#10b981" /> {/* Emerald-500 */}
               <stop offset="100%" stopColor="#047857" /> {/* Emerald-700 */}
             </linearGradient>
+            <filter id="neonGlowRing" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="3.0" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
           </defs>
 
           {/* Backgrounds */}
@@ -99,6 +124,7 @@ export default function ActivityRings({
             strokeDasharray={circ1}
             strokeDashoffset={strokeDashoffset1}
             strokeLinecap="round"
+            filter="url(#neonGlowRing)"
             className="transition-all duration-1000 ease-out"
           />
           <circle
@@ -111,6 +137,7 @@ export default function ActivityRings({
             strokeDasharray={circ2}
             strokeDashoffset={strokeDashoffset2}
             strokeLinecap="round"
+            filter="url(#neonGlowRing)"
             className="transition-all duration-1000 ease-out"
           />
           <circle
@@ -123,12 +150,13 @@ export default function ActivityRings({
             strokeDasharray={circ3}
             strokeDashoffset={strokeDashoffset3}
             strokeLinecap="round"
+            filter="url(#neonGlowRing)"
             className="transition-all duration-1000 ease-out"
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
           <span className="text-2xl font-black text-white">
-            {Math.round((pct1 + pct2 + pct3) * 33.3)}%
+            {Math.round((animatedPct.p1 + animatedPct.p2 + animatedPct.p3) * 33.3)}%
           </span>
           <span className="text-[10px] uppercase font-bold tracking-widest text-indigo-200">
             Daily Goal

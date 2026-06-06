@@ -166,17 +166,20 @@ export default function ProgressChart({ logs = [] }: ProgressChartProps) {
                 allowDecimals={false}
               />
               <Tooltip
-                cursor={{ fill: 'rgba(99, 102, 241, 0.05)' }}
+                cursor={{ fill: 'rgba(99, 102, 241, 0.04)' }}
                 contentStyle={{
-                  backgroundColor: '#0f172a',
-                  borderColor: '#1e293b',
-                  borderRadius: '12px',
+                  backgroundColor: 'rgba(15, 23, 42, 0.85)',
+                  borderColor: 'rgba(99, 102, 241, 0.3)',
+                  borderRadius: '16px',
                   fontSize: '12px',
-                  color: '#fff'
+                  color: '#fff',
+                  backdropFilter: 'blur(8px)',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3)',
+                  borderWidth: '1px'
                 }}
                 formatter={(value: number | string) => [`${value} ${metric === 'workouts' ? '' : metric === 'minutes' ? 'min' : 'kcal'}`, getActiveMetricLabel()]}
               />
-              <Bar dataKey={metric} radius={[4, 4, 0, 0]} maxBarSize={32}>
+              <Bar dataKey={metric} radius={[6, 6, 0, 0]} maxBarSize={32} style={{ filter: `drop-shadow(0px 0px 4px ${activeColor}80)` }}>
                 {chartData.map((entry, index: number) => (
                   <Cell
                     key={`cell-${index}`}
@@ -235,6 +238,13 @@ export default function ProgressChart({ logs = [] }: ProgressChartProps) {
                     <stop offset="0%" stopColor="#6366f1" stopOpacity={0.25} />
                     <stop offset="100%" stopColor="#6366f1" stopOpacity={0.0} />
                   </linearGradient>
+                  <filter id="areaGlowFilter" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur stdDeviation="3.5" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
                 </defs>
                 <XAxis
                   dataKey="dateStr"
@@ -253,11 +263,14 @@ export default function ProgressChart({ logs = [] }: ProgressChartProps) {
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#0f172a',
-                    borderColor: '#1e293b',
-                    borderRadius: '12px',
+                    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+                    borderColor: 'rgba(99, 102, 241, 0.3)',
+                    borderRadius: '16px',
                     fontSize: '12px',
-                    color: '#fff'
+                    color: '#fff',
+                    backdropFilter: 'blur(8px)',
+                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3)',
+                    borderWidth: '1px'
                   }}
                   formatter={(value: number | string) => [`${value} lbs`, 'Selected Load']}
                 />
@@ -265,11 +278,12 @@ export default function ProgressChart({ logs = [] }: ProgressChartProps) {
                   type="monotone"
                   dataKey="weight"
                   stroke="#6366f1"
-                  strokeWidth={2.5}
+                  strokeWidth={3}
+                  filter="url(#areaGlowFilter)"
                   fillOpacity={1}
                   fill="url(#colorWeight)"
                   dot={{ r: 4, stroke: '#6366f1', strokeWidth: 2, fill: '#fff' }}
-                  activeDot={{ r: 6, stroke: '#6366f1', strokeWidth: 1, fill: '#6366f1' }}
+                  activeDot={{ r: 6, stroke: '#fff', strokeWidth: 2, fill: '#6366f1', style: { filter: 'drop-shadow(0px 0px 8px #6366f1)' } }}
                 />
               </AreaChart>
             </ResponsiveContainer>

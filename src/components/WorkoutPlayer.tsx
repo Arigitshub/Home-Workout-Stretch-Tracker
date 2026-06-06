@@ -895,6 +895,49 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
                       style={{ animationDuration: pulseDuration }}
                     />
                   </svg>
+
+                  {/* Dynamic Exercise Visual Animation Helper */}
+                  {currentExercise.type === 'stretch' && (
+                    <div className="flex flex-col items-center mt-2 scale-90">
+                      <span className="text-[8px] uppercase tracking-wider text-purple-400 font-extrabold animate-pulse">Deep Breath Flow</span>
+                      <svg className="w-6 h-6 text-purple-400 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="8" className="animate-ping" style={{ animationDuration: '4s' }} />
+                        <circle cx="12" cy="12" r="5" />
+                      </svg>
+                    </div>
+                  )}
+                  {currentExercise.type === 'workout' && currentExercise.needsWeight && (
+                    <div className="flex flex-col items-center mt-2 scale-90">
+                      <span className="text-[8px] uppercase tracking-wider text-indigo-400 font-extrabold animate-pulse">Power Reps</span>
+                      <svg className="w-8 h-5 text-indigo-400 mt-0.5" viewBox="0 0 40 20" fill="none" stroke="currentColor" strokeWidth="2">
+                        <g className="animate-bounce" style={{ animationDuration: '2s' }}>
+                          <line x1="8" y1="10" x2="32" y2="10" />
+                          <rect x="4" y="6" width="4" height="8" rx="1" fill="currentColor" />
+                          <rect x="1" y="8" width="3" height="4" rx="0.5" fill="currentColor" />
+                          <rect x="32" y="6" width="4" height="8" rx="1" fill="currentColor" />
+                          <rect x="36" y="8" width="3" height="4" rx="0.5" fill="currentColor" />
+                        </g>
+                      </svg>
+                    </div>
+                  )}
+                  {currentExercise.type === 'workout' && !currentExercise.needsWeight && (
+                    <div className="flex flex-col items-center mt-2 scale-90">
+                      <span className="text-[8px] uppercase tracking-wider text-rose-455 font-extrabold animate-pulse">Burn Zone</span>
+                      <svg className="w-10 h-5 text-rose-500 mt-0.5" viewBox="0 0 40 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path 
+                          d="M5,10 Q10,0 15,10 T25,10 T35,10" 
+                          className="animate-pulse" 
+                          strokeDasharray="3 1" 
+                          style={{ animationDuration: '0.8s' }} 
+                        />
+                        <path 
+                          d="M5,10 Q10,20 15,10 T25,10 T35,10" 
+                          className="animate-pulse" 
+                          style={{ animationDuration: '0.8s' }} 
+                        />
+                      </svg>
+                    </div>
+                  )}
                 </div>
               </div>
 

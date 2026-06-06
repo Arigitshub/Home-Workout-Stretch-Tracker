@@ -100,16 +100,16 @@ export default function CelebrationModal({ badgeIds, onClose }: CelebrationModal
         </p>
 
         {/* Unlocked Badges List */}
-        <div className="my-6 space-y-3.5 max-h-60 overflow-y-auto pr-1">
+        <div className="my-6 space-y-3.5 max-h-60 overflow-y-auto pr-1 perspective-card">
           {badges.map((badge) => {
             const Icon = badge.icon;
             return (
               <div
                 key={badge.id}
-                className="relative p-4 rounded-2xl bg-gradient-to-r from-slate-950/70 to-slate-900/50 border border-white/5 flex items-center space-x-4 text-left overflow-hidden group hover:border-indigo-500/30 transition-all duration-300"
+                className="relative p-4 rounded-2xl bg-gradient-to-r from-slate-950/70 to-slate-900/50 border border-white/5 flex items-center space-x-4 text-left overflow-hidden group hover:border-indigo-500/30 transition-all duration-300 badge-3d-item"
               >
                 {/* Badge Left Icon Graphic */}
-                <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${badge.colorClass} flex items-center justify-center text-white flex-shrink-0 shadow-md`}>
+                <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${badge.colorClass} flex items-center justify-center text-white flex-shrink-0 shadow-md badge-icon-glow`}>
                   <Icon className="w-5.5 h-5.5" />
                 </div>
 
