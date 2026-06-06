@@ -185,8 +185,8 @@ export default function App() {
 
   // Scoring/Recommendation algorithm based on onboarding quiz
   const getRecommendedRoutines = () => {
-    const equipPref = profile.equipment || [];
-    const goalsPref = profile.fitnessGoals || [];
+    const equipPref = profile?.equipment || [];
+    const goalsPref = profile?.fitnessGoals || [];
 
     const scored = allRoutines.map((routine) => {
       let score = 0;
@@ -583,7 +583,7 @@ export default function App() {
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400">
-                    {profile.location && profile.fitnessGoals && profile.fitnessGoals.length > 0 
+                    {profile?.location && profile?.fitnessGoals && profile?.fitnessGoals.length > 0 
                       ? "Recommended for You Today 🎯" 
                       : "Today's Quick Routines"}
                   </h3>

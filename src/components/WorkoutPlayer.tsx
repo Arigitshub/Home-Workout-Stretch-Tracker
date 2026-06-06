@@ -259,6 +259,10 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
   }, [currentStep, exerciseIndex, isPaused, soundEnabled]);
 
   const handleTimerEnd = () => {
+    setCoachCaption(null);
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
     if (currentStep === 'intro') {
       // Move to first active exercise
       setCurrentStep('active');
@@ -293,6 +297,10 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
   };
 
   const handleCompletion = () => {
+    setCoachCaption(null);
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
     if (soundEnabled) {
       setTimeout(() => playBeep(523.25, 0.15), 0);   // C5
       setTimeout(() => playBeep(659.25, 0.15), 150); // E5
@@ -304,6 +312,10 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
   };
 
   const handleSkip = () => {
+    setCoachCaption(null);
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
     if (currentStep === 'intro') {
       setCurrentStep('active');
       const firstEx = routine.exercises[0];
@@ -333,6 +345,10 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
   };
 
   const handleBack = () => {
+    setCoachCaption(null);
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
     if (currentStep === 'active' && exerciseIndex > 0) {
       const prevIndex = exerciseIndex - 1;
       setExerciseIndex(prevIndex);
@@ -355,8 +371,11 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
   const togglePause = () => {
     const nextPaused = !isPaused;
     setIsPaused(nextPaused);
-    if (nextPaused && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
+    if (nextPaused) {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      setCoachCaption(null);
     }
   };
 
@@ -479,7 +498,7 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
 
   // AI Coaching Posture Tips
   useEffect(() => {
-    if (currentStep === 'active' && currentExercise) {
+    if (currentStep === 'active' && currentExercise && !isPaused) {
       const elapsed = totalDuration - timeLeft;
       const tip = getAiCoachingTip(currentExercise.name, elapsed, totalDuration);
       if (tip) {
@@ -490,7 +509,17 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeft, currentStep]);
+  }, [timeLeft, currentStep, isPaused, totalDuration]);
+
+  // Clear coaching caption and cancel TTS if paused
+  useEffect(() => {
+    if (isPaused) {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      setCoachCaption(null);
+    }
+  }, [isPaused]);
 
   return (
     <div className="fixed inset-0 bg-slate-950 text-white z-50 flex flex-col justify-between p-6 md:p-10 transition-all duration-300 overflow-hidden">
@@ -536,7 +565,16 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
 
         <div className="flex items-center space-x-3">
           <button
-            onClick={() => setSoundEnabled(!soundEnabled)}
+            onClick={() => {
+              const nextVal = !soundEnabled;
+              setSoundEnabled(nextVal);
+              if (!nextVal) {
+                if ('speechSynthesis' in window) {
+                  window.speechSynthesis.cancel();
+                }
+                setCoachCaption(null);
+              }
+            }}
             className="p-2.5 rounded-full bg-slate-900 border border-slate-800 hover:bg-slate-800 transition-colors text-slate-300 hover:text-white"
           >
             {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5 text-rose-400" />}
