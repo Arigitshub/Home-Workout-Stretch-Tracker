@@ -30,6 +30,7 @@ export interface WorkoutLog {
   caloriesBurned: number;
   xpEarned: number;
   weightsUsed?: { [exerciseName: string]: number };
+  mood?: string;
 }
 
 export interface UserProfile {
@@ -44,5 +45,9 @@ export interface UserProfile {
   location?: 'home' | 'gym' | 'any';
   equipment?: string[];
   fitnessGoals?: string[];
+  streakShields?: number;
+  soundTheme?: 'classic' | 'synthwave' | 'retro_8bit' | 'zen';
+  coachPersonality?: 'standard' | 'yogi' | 'sergeant' | 'cheerleader';
+  restDays?: number[];
 }
 

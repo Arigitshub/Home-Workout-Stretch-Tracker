@@ -277,11 +277,15 @@ export default function StreakCalendar({
           const active = hasActivityOnDay(item);
           const type = getActivityTypeOnDay(item);
           const current = isToday(item);
+          const dayLogs = getLogsForDay(item);
+          const isShieldDay = dayLogs.length > 0 && dayLogs.every(log => log.routineId === 'streak_shield');
 
           let cellClass = 'bg-gray-50/55 dark:bg-gray-900/10 text-gray-700 dark:text-gray-300 border border-transparent';
 
           if (active) {
-            if (type === 'both') {
+            if (isShieldDay) {
+              cellClass = 'bg-indigo-50/70 dark:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-905/30 font-bold';
+            } else if (type === 'both') {
               cellClass = 'bg-gradient-to-tr from-indigo-500 to-purple-500 text-white font-extrabold shadow-sm shadow-indigo-500/20';
             } else if (type === 'stretch') {
               cellClass = 'bg-gradient-to-tr from-purple-500 to-fuchsia-500 text-white font-extrabold shadow-sm shadow-purple-500/20';
@@ -303,9 +307,13 @@ export default function StreakCalendar({
             >
               <span>{item}</span>
               
-              {/* Little flame overlay for active dates */}
+              {/* Little flame overlay or shield overlay for active dates */}
               {active && (
-                <Flame className="w-2.5 h-2.5 fill-white absolute bottom-1 text-white animate-pulse" />
+                isShieldDay ? (
+                  <span className="text-[10px] absolute bottom-0.5" title="Streak protected by shield">🛡️</span>
+                ) : (
+                  <Flame className="w-2.5 h-2.5 fill-white absolute bottom-1 text-white animate-pulse" />
+                )
               )}
 
               {/* Hover Tooltip showing details */}

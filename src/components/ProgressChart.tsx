@@ -314,6 +314,96 @@ export default function ProgressChart({ logs = [] }: ProgressChartProps) {
           </div>
         )}
       </div>
+
+      {/* Mood Analytics Card */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6 border border-gray-100 dark:border-gray-700/60 transition-all duration-300">
+        <div className="flex items-center space-x-2.5 mb-4">
+          <span className="text-xl">📊</span>
+          <div>
+            <h3 className="font-bold text-lg text-gray-800 dark:text-white">Workout Mood Distribution</h3>
+            <p className="text-xs text-gray-400">Your post-workout emotional stats.</p>
+          </div>
+        </div>
+
+        {(() => {
+          const moodCounts: { [key: string]: number } = { energized: 0, restored: 0, exhausted: 0, tired: 0 };
+          let totalMoodLogs = 0;
+          
+          logs.forEach((log) => {
+            if (log.mood && moodCounts[log.mood] !== undefined) {
+              moodCounts[log.mood]++;
+              totalMoodLogs++;
+            }
+          });
+
+          const moodDetails = [
+            { key: 'energized', label: 'Energized', emoji: '⚡', barColor: 'from-amber-500 to-orange-500' },
+            { key: 'restored', label: 'Restored', emoji: '🧘', barColor: 'from-emerald-500 to-teal-500' },
+            { key: 'exhausted', label: 'Exhausted', emoji: '🥵', barColor: 'from-rose-500 to-red-500' },
+            { key: 'tired', label: 'Tired', emoji: '😴', barColor: 'from-blue-500 to-indigo-500' }
+          ];
+
+          const hasMoodData = totalMoodLogs > 0;
+          const sortedMoods = Object.keys(moodCounts).sort((a, b) => moodCounts[b] - moodCounts[a]);
+          const dominantMoodKey = sortedMoods[0];
+          const dominantCount = moodCounts[dominantMoodKey];
+
+          if (hasMoodData) {
+            const domDetail = moodDetails.find(m => m.key === dominantMoodKey);
+            let insight = "";
+            if (dominantMoodKey === 'energized') insight = "You're feeling fired up and ready to conquer! Your workouts are fueling your energy levels.";
+            else if (dominantMoodKey === 'restored') insight = "Your workouts are acting as a peaceful reset. You're ending sessions feeling relaxed and aligned.";
+            else if (dominantMoodKey === 'exhausted') insight = "You're pushing yourself to the absolute limit. Remember to schedule recovery days!";
+            else if (dominantMoodKey === 'tired') insight = "You're logging sessions even when fatigued. Incredible discipline, but listen to your body!";
+
+            return (
+              <div className="space-y-4">
+                {dominantCount > 0 && domDetail && (
+                  <div className="p-3.5 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 rounded-xl text-xs text-indigo-700 dark:text-indigo-300 leading-relaxed font-medium">
+                    <span className="font-bold">Dominant State: {domDetail.emoji} {domDetail.label}</span> — {insight}
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  {moodDetails.map((mood) => {
+                    const count = moodCounts[mood.key];
+                    const pct = (count / totalMoodLogs) * 100;
+                    return (
+                      <div key={mood.key} className="space-y-1">
+                        <div className="flex justify-between items-center text-xs font-semibold text-gray-750 dark:text-slate-350">
+                          <span className="flex items-center space-x-1.5">
+                            <span>{mood.emoji}</span>
+                            <span>{mood.label}</span>
+                          </span>
+                          <span className="font-mono text-gray-455 dark:text-slate-500">
+                            {count} ({Math.round(pct)}%)
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-105 dark:bg-slate-900 h-2 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full bg-gradient-to-r ${mood.barColor} rounded-full transition-all duration-500`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          } else {
+            return (
+              <div className="py-8 border border-dashed border-gray-250 dark:border-gray-750 rounded-2xl text-center text-gray-450 bg-gray-50/30 dark:bg-gray-900/10 flex flex-col items-center justify-center">
+                <span className="text-3xl mb-2">🧘</span>
+                <span className="text-sm font-bold text-gray-750 dark:text-gray-300">No Mood Logs Yet</span>
+                <p className="text-xs text-gray-400 max-w-xs mt-1 leading-relaxed px-4">
+                  Mood tags will populate here once you select how you felt upon completing workouts in the player.
+                </p>
+              </div>
+            );
+          }
+        })()}
+      </div>
     </div>
   );
 }

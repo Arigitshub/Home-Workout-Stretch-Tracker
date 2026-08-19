@@ -2,6 +2,556 @@ import { useState, useEffect, useRef } from 'react';
 import { Play, Pause, SkipForward, SkipBack, X, Award, Flame, Timer, CheckCircle2, Volume2, VolumeX, Dumbbell, Sparkles } from 'lucide-react';
 import { Routine, Exercise, UserProfile } from '../types';
 
+class SoundSynthesizer {
+  private ctx: AudioContext | null = null;
+  private droneOsc1: OscillatorNode | null = null;
+  private droneOsc2: OscillatorNode | null = null;
+  private droneOsc3: OscillatorNode | null = null;
+  private droneGain: GainNode | null = null;
+  private droneFilter: BiquadFilterNode | null = null;
+  private lfo: OscillatorNode | null = null;
+  private lfoGain: GainNode | null = null;
+  
+  private bpm: number = 120;
+  private isMuted: boolean = false;
+  private activeType: 'workout' | 'stretch' | null = null;
+  private theme: 'classic' | 'synthwave' | 'retro_8bit' | 'zen' = 'classic';
+  
+  private beatTimer: any = null;
+  private stepCount: number = 0;
+
+  constructor() {}
+
+  init() {
+    if (!this.ctx) {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioContextClass) {
+        this.ctx = new AudioContextClass();
+      }
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+  }
+
+  setMuted(muted: boolean) {
+    this.isMuted = muted;
+    if (muted) {
+      if (this.droneGain) this.droneGain.gain.setValueAtTime(0, this.ctx?.currentTime || 0);
+    } else {
+      if (this.droneGain && this.activeType === 'stretch') {
+        const volume = this.theme === 'zen' ? 0.22 : 0.12;
+        this.droneGain.gain.setValueAtTime(volume, this.ctx?.currentTime || 0);
+      }
+    }
+  }
+
+  setTheme(theme: 'classic' | 'synthwave' | 'retro_8bit' | 'zen') {
+    const wasRunning = this.activeType !== null;
+    const prevType = this.activeType;
+    this.theme = theme;
+    if (wasRunning && prevType) {
+      this.start(prevType);
+    }
+  }
+
+  setBpm(bpm: number) {
+    this.bpm = bpm;
+    if (this.activeType === 'workout') {
+      this.restartWorkoutBeats();
+    }
+  }
+
+  start(type: 'workout' | 'stretch') {
+    this.init();
+    if (!this.ctx) return;
+    
+    this.stop();
+    this.activeType = type;
+
+    if (type === 'stretch') {
+      this.startStretchDrone();
+    } else if (type === 'workout') {
+      this.startWorkoutBeats();
+    }
+  }
+
+  stop() {
+    this.activeType = null;
+    
+    if (this.droneOsc1) {
+      try { this.droneOsc1.stop(); } catch(e) {}
+      this.droneOsc1.disconnect();
+      this.droneOsc1 = null;
+    }
+    if (this.droneOsc2) {
+      try { this.droneOsc2.stop(); } catch(e) {}
+      this.droneOsc2.disconnect();
+      this.droneOsc2 = null;
+    }
+    if (this.droneOsc3) {
+      try { this.droneOsc3.stop(); } catch(e) {}
+      this.droneOsc3.disconnect();
+      this.droneOsc3 = null;
+    }
+    if (this.lfo) {
+      try { this.lfo.stop(); } catch(e) {}
+      this.lfo.disconnect();
+      this.lfo = null;
+    }
+    if (this.lfoGain) {
+      this.lfoGain.disconnect();
+      this.lfoGain = null;
+    }
+    if (this.droneFilter) {
+      this.droneFilter.disconnect();
+      this.droneFilter = null;
+    }
+    if (this.droneGain) {
+      this.droneGain.disconnect();
+      this.droneGain = null;
+    }
+
+    if (this.beatTimer) {
+      clearInterval(this.beatTimer);
+      this.beatTimer = null;
+    }
+  }
+
+  private startStretchDrone() {
+    if (!this.ctx) return;
+    
+    const now = this.ctx.currentTime;
+    this.droneGain = this.ctx.createGain();
+    const volume = this.theme === 'zen' ? 0.22 : 0.12;
+    this.droneGain.gain.setValueAtTime(this.isMuted ? 0 : volume, now);
+    this.droneGain.connect(this.ctx.destination);
+
+    if (this.theme === 'synthwave') {
+      this.lfo = this.ctx.createOscillator();
+      this.lfoGain = this.ctx.createGain();
+      this.lfo.frequency.setValueAtTime(0.15, now);
+      this.lfoGain.gain.setValueAtTime(120, now);
+      
+      this.droneOsc1 = this.ctx.createOscillator();
+      this.droneOsc1.type = 'sawtooth';
+      this.droneOsc1.frequency.setValueAtTime(110, now);
+      
+      this.droneOsc2 = this.ctx.createOscillator();
+      this.droneOsc2.type = 'sawtooth';
+      this.droneOsc2.frequency.setValueAtTime(110.6, now);
+
+      this.droneFilter = this.ctx.createBiquadFilter();
+      this.droneFilter.type = 'lowpass';
+      this.droneFilter.frequency.setValueAtTime(180, now);
+
+      this.lfo.connect(this.lfoGain);
+      this.lfoGain.connect(this.droneFilter.frequency);
+      
+      this.droneOsc1.connect(this.droneFilter);
+      this.droneOsc2.connect(this.droneFilter);
+      this.droneFilter.connect(this.droneGain);
+      
+      this.lfo.start(now);
+      this.droneOsc1.start(now);
+      this.droneOsc2.start(now);
+
+    } else if (this.theme === 'retro_8bit') {
+      const notes = [261.63, 329.63, 392.00, 493.88, 523.25];
+      let noteIndex = 0;
+      
+      this.beatTimer = setInterval(() => {
+        if (this.isMuted || !this.ctx || this.ctx.state === 'suspended' || this.activeType !== 'stretch') return;
+        const playTime = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(notes[noteIndex], playTime);
+        noteIndex = (noteIndex + 1) % notes.length;
+        
+        gain.gain.setValueAtTime(0.04, playTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, playTime + 0.45);
+        
+        osc.connect(gain);
+        gain.connect(this.droneGain!);
+        
+        osc.start(playTime);
+        osc.stop(playTime + 0.5);
+      }, 500);
+
+    } else if (this.theme === 'zen') {
+      this.droneOsc1 = this.ctx.createOscillator();
+      this.droneOsc1.type = 'sine';
+      this.droneOsc1.frequency.setValueAtTime(144, now);
+      
+      this.droneOsc2 = this.ctx.createOscillator();
+      this.droneOsc2.type = 'sine';
+      this.droneOsc2.frequency.setValueAtTime(144.5, now);
+      
+      this.droneOsc3 = this.ctx.createOscillator();
+      this.droneOsc3.type = 'sine';
+      this.droneOsc3.frequency.setValueAtTime(216, now);
+
+      this.lfo = this.ctx.createOscillator();
+      this.lfoGain = this.ctx.createGain();
+      this.lfo.frequency.setValueAtTime(0.06, now);
+      this.lfoGain.gain.setValueAtTime(0.05, now);
+
+      const droneSubGain = this.ctx.createGain();
+      droneSubGain.gain.setValueAtTime(0.12, now);
+
+      this.lfo.connect(this.lfoGain);
+      this.lfoGain.connect(droneSubGain.gain);
+
+      this.droneOsc1.connect(droneSubGain);
+      this.droneOsc2.connect(droneSubGain);
+      this.droneOsc3.connect(droneSubGain);
+      droneSubGain.connect(this.droneGain);
+
+      this.lfo.start(now);
+      this.droneOsc1.start(now);
+      this.droneOsc2.start(now);
+      this.droneOsc3.start(now);
+
+    } else {
+      this.droneOsc1 = this.ctx.createOscillator();
+      this.droneOsc1.type = 'sine';
+      this.droneOsc1.frequency.setValueAtTime(100, now);
+
+      this.droneOsc2 = this.ctx.createOscillator();
+      this.droneOsc2.type = 'sine';
+      this.droneOsc2.frequency.setValueAtTime(108, now);
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(150, now);
+      
+      this.droneOsc1.connect(filter);
+      this.droneOsc2.connect(filter);
+      filter.connect(this.droneGain);
+
+      this.droneOsc1.start(now);
+      this.droneOsc2.start(now);
+    }
+  }
+
+  private startWorkoutBeats() {
+    this.restartWorkoutBeats();
+  }
+
+  private restartWorkoutBeats() {
+    if (this.beatTimer) {
+      clearInterval(this.beatTimer);
+      this.beatTimer = null;
+    }
+    
+    const intervalMs = (60 / this.bpm) * 250;
+    this.stepCount = 0;
+    
+    this.beatTimer = setInterval(() => {
+      if (this.isMuted || !this.ctx || this.ctx.state === 'suspended' || this.activeType !== 'workout') return;
+      this.playStep(this.stepCount);
+      this.stepCount = (this.stepCount + 1) % 16;
+    }, intervalMs);
+  }
+
+  private playStep(step: number) {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+
+    if (this.theme === 'synthwave') {
+      if (step % 2 === 0) {
+        const measure = Math.floor(this.stepCount / 16) % 4;
+        let freq = 55.0;
+        if (measure === 2) freq = 49.0;
+        if (measure === 3) freq = 43.65;
+        this.playSynthwaveBass(freq, now);
+      }
+      if (step === 0 || step === 8) {
+        this.playKickDrum(now, 110, 35, 0.15, 0.2);
+      }
+      if (step === 4 || step === 12) {
+        this.playSynthwaveSnare(now);
+      }
+      if (step % 4 === 2) {
+        this.playHiHat(now, 0.02, 0.05);
+      }
+
+    } else if (this.theme === 'retro_8bit') {
+      if (step % 2 === 0) {
+        const measure = Math.floor(this.stepCount / 16) % 4;
+        const notes = [110.0, 130.81, 146.83, 164.81];
+        const freq = notes[(measure + (step / 4)) % notes.length];
+        this.playRetroBass(freq, now);
+      }
+      if (step === 0 || step === 8) {
+        this.playRetroKick(now);
+      }
+      if (step === 4 || step === 12) {
+        this.playRetroSnare(now);
+      }
+      if (step % 4 === 2) {
+        this.playRetroHiHat(now);
+      }
+
+    } else if (this.theme === 'zen') {
+      if (step === 0) {
+        this.playKickDrum(now, 75, 30, 0.25, 0.12);
+      }
+      if (step === 8) {
+        this.playTibetanBowl(now);
+      }
+      if (step === 4 || step === 12) {
+        this.playWoodBlock(now);
+      }
+
+    } else {
+      if (step === 0 || step === 8) {
+        this.playClassicKick(now);
+      }
+      if (step === 4 || step === 12) {
+        this.playClassicHiHat(now);
+      }
+    }
+  }
+
+  private playClassicKick(now: number) {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.frequency.setValueAtTime(120, now);
+    osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
+    gain.gain.setValueAtTime(0.18, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    osc.start(now);
+    osc.stop(now + 0.2);
+  }
+
+  private playClassicHiHat(now: number) {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    const filter = this.ctx.createBiquadFilter();
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(8000, now);
+    filter.type = 'highpass';
+    filter.frequency.setValueAtTime(7000, now);
+    gain.gain.setValueAtTime(0.02, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+    osc.start(now);
+    osc.stop(now + 0.05);
+  }
+
+  private playKickDrum(now: number, startFreq: number, endFreq: number, duration: number, vol: number) {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.frequency.setValueAtTime(startFreq, now);
+    osc.frequency.exponentialRampToValueAtTime(endFreq, now + duration);
+    gain.gain.setValueAtTime(vol, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration + 0.02);
+    osc.start(now);
+    osc.stop(now + duration + 0.05);
+  }
+
+  private playSynthwaveSnare(now: number) {
+    if (!this.ctx) return;
+    try {
+      const bufferSize = this.ctx.sampleRate * 0.22;
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 1100;
+      filter.Q.value = 2.0;
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      const tone = this.ctx.createOscillator();
+      const toneGain = this.ctx.createGain();
+      tone.frequency.setValueAtTime(180, now);
+      toneGain.gain.setValueAtTime(0.08, now);
+      toneGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      tone.connect(toneGain);
+      toneGain.connect(this.ctx.destination);
+
+      noise.start(now);
+      tone.start(now);
+      tone.stop(now + 0.12);
+    } catch (e) {}
+  }
+
+  private playSynthwaveBass(freq: number, now: number) {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const filter = this.ctx.createBiquadFilter();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(freq, now);
+
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(140, now);
+    filter.frequency.exponentialRampToValueAtTime(320, now + 0.04);
+    filter.frequency.exponentialRampToValueAtTime(100, now + 0.12);
+
+    gain.gain.setValueAtTime(0.09, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.15);
+  }
+
+  private playRetroKick(now: number) {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(180, now);
+    osc.frequency.exponentialRampToValueAtTime(45, now + 0.08);
+    gain.gain.setValueAtTime(0.12, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.1);
+  }
+
+  private playRetroSnare(now: number) {
+    if (!this.ctx) return;
+    try {
+      const bufferSize = this.ctx.sampleRate * 0.08;
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 1600;
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.07, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      noise.start(now);
+    } catch (e) {}
+  }
+
+  private playRetroHiHat(now: number) {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(6000, now);
+    gain.gain.setValueAtTime(0.015, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.04);
+  }
+
+  private playRetroBass(freq: number, now: number) {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(freq, now);
+    gain.gain.setValueAtTime(0.05, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.14);
+  }
+
+  private playTibetanBowl(now: number) {
+    if (!this.ctx) return;
+    const freqs = [350, 700, 1050, 1400];
+    const gains = [0.15, 0.06, 0.03, 0.01];
+    
+    freqs.forEach((freq, index) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now);
+      
+      gain.gain.setValueAtTime(gains[index], now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+      
+      osc.connect(gain);
+      gain.connect(this.ctx!.destination);
+      osc.start(now);
+      osc.stop(now + 1.6);
+    });
+  }
+
+  private playWoodBlock(now: number) {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(800, now);
+    osc.frequency.exponentialRampToValueAtTime(400, now + 0.04);
+    gain.gain.setValueAtTime(0.04, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.05);
+  }
+
+  private playHiHat(now: number, vol: number, dur: number) {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const filter = this.ctx.createBiquadFilter();
+    const gain = this.ctx.createGain();
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(9000, now);
+    filter.type = 'highpass';
+    filter.frequency.setValueAtTime(8000, now);
+    gain.gain.setValueAtTime(vol, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    osc.start(now);
+    osc.stop(now + dur + 0.01);
+  }
+}
+
 function getBeginnerTip(exerciseName: string): string {
   const name = exerciseName.toLowerCase();
   if (name.includes('squat')) {
@@ -103,6 +653,7 @@ interface WorkoutPlayerProps {
     caloriesBurned: number;
     xpEarned: number;
     weightsUsed?: { [exerciseName: string]: number };
+    mood?: string;
   }) => void;
   onClose: () => void;
 }
@@ -115,9 +666,16 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
   
   const [exerciseIndex, setExerciseIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(5); // 5s intro countdown
+  const [activeExerciseDuration, setActiveExerciseDuration] = useState(5);
+  const [selectedMood, setSelectedMood] = useState<string>('energized');
+  const [showResumePrompt, setShowResumePrompt] = useState(false);
+  const [savedState, setSavedState] = useState<any>(null);
   const [isPaused, setIsPaused] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [coachCaption, setCoachCaption] = useState<string | null>(null);
+
+  // Sound Synthesizer reference
+  const synthRef = useRef<SoundSynthesizer | null>(null);
 
   // Map of exercise ID -> configured weight in lbs
   const [weights, setWeights] = useState<{ [exId: string]: number }>(() => {
@@ -222,20 +780,134 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep]);
 
+  // Get active progress percentage
+  const getSimulatedHeartRate = () => {
+    if (isPaused) return 70;
+    
+    if (currentStep === 'intro' || currentStep === 'setup_weight' || currentStep === 'complete') {
+      return 70;
+    }
+    
+    const totalDurationVal = currentStep === 'active' && currentExercise ? activeExerciseDuration : 10;
+    
+    if (currentStep === 'active' && currentExercise) {
+      const isCardio = currentExercise.name.toLowerCase().includes('jack') || 
+                       currentExercise.name.toLowerCase().includes('climber') || 
+                       currentExercise.name.toLowerCase().includes('knee') ||
+                       currentExercise.name.toLowerCase().includes('hiit') ||
+                       currentExercise.name.toLowerCase().includes('squat');
+      const baseBpm = currentExercise.type === 'workout' ? (isCardio ? 110 : 95) : 65;
+      const peakBpm = currentExercise.type === 'workout' ? (isCardio ? 165 : 130) : 75;
+      
+      const elapsedFraction = (totalDurationVal - timeLeft) / totalDurationVal;
+      return Math.round(baseBpm + (peakBpm - baseBpm) * elapsedFraction);
+    }
+    
+    if (currentStep === 'rest') {
+      const elapsedFraction = (10 - timeLeft) / 10;
+      return Math.round(135 - (135 - 82) * elapsedFraction);
+    }
+    
+    return 70;
+  };
+
+  const bpm = getSimulatedHeartRate();
+  const pulseDuration = `${60 / bpm}s`;
+
+  const triggerVibration = (pattern: number | number[]) => {
+    if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(pattern);
+      } catch (e) {
+        console.warn('Vibration failed:', e);
+      }
+    }
+  };
+
+  // Sound Synthesizer hooks
+  useEffect(() => {
+    synthRef.current = new SoundSynthesizer();
+    return () => {
+      if (synthRef.current) {
+        synthRef.current.stop();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (synthRef.current) {
+      synthRef.current.setMuted(!soundEnabled);
+    }
+  }, [soundEnabled]);
+
+  useEffect(() => {
+    if (synthRef.current) {
+      synthRef.current.setBpm(bpm);
+    }
+  }, [bpm]);
+
+  useEffect(() => {
+    if (!synthRef.current) return;
+    if (currentStep === 'active' && currentExercise && !isPaused) {
+      synthRef.current.start(currentExercise.type);
+    } else {
+      synthRef.current.stop();
+    }
+  }, [currentStep, exerciseIndex, isPaused, currentExercise]);
+
+  // Check state protection on mount
+  useEffect(() => {
+    const raw = localStorage.getItem('fittrack_active_workout');
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed.routineId === routine.id && Date.now() - parsed.timestamp < 7200000) {
+          setSavedState(parsed);
+          setShowResumePrompt(true);
+        } else {
+          localStorage.removeItem('fittrack_active_workout');
+        }
+      } catch (e) {
+        console.error('State protection loading failed:', e);
+      }
+    }
+  }, [routine.id]);
+
+  // Save active workout state to localStorage
+  useEffect(() => {
+    if (['active', 'rest'].includes(currentStep)) {
+      const stateToSave = {
+        routineId: routine.id,
+        exerciseIndex,
+        timeLeft,
+        currentStep,
+        totalSecsCompleted,
+        completedExerciseIds,
+        weights,
+        activeExerciseDuration,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('fittrack_active_workout', JSON.stringify(stateToSave));
+    } else if (currentStep === 'complete') {
+      localStorage.removeItem('fittrack_active_workout');
+    }
+  }, [currentStep, exerciseIndex, timeLeft, totalSecsCompleted, completedExerciseIds, weights, activeExerciseDuration, routine.id]);
+
   // Main countdown loop
   useEffect(() => {
-    if (isPaused || currentStep === 'complete' || currentStep === 'setup_weight') {
+    if (isPaused || currentStep === 'complete' || currentStep === 'setup_weight' || showResumePrompt) {
       if (intervalRef.current) clearInterval(intervalRef.current);
       return;
     }
 
     intervalRef.current = setInterval(() => {
       setTimeLeft((prev) => {
-        // Countdown alert beeps for last 3 seconds
         if (prev <= 4 && prev > 1) {
           playBeep(600, 0.08);
+          triggerVibration(60);
         } else if (prev === 1) {
           playBeep(1200, 0.25);
+          triggerVibration([120, 80, 120]);
         }
 
         if (prev <= 1) {
@@ -243,7 +915,6 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
           return 0;
         }
 
-        // Track active exercise seconds towards stats
         if (currentStep === 'active') {
           setTotalSecsCompleted((t) => t + 1);
         }
@@ -256,7 +927,7 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep, exerciseIndex, isPaused, soundEnabled]);
+  }, [currentStep, exerciseIndex, isPaused, soundEnabled, showResumePrompt]);
 
   const handleTimerEnd = () => {
     setCoachCaption(null);
@@ -264,34 +935,32 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
       window.speechSynthesis.cancel();
     }
     if (currentStep === 'intro') {
-      // Move to first active exercise
       setCurrentStep('active');
       const firstEx = routine.exercises[0];
       setTimeLeft(firstEx.duration);
+      setActiveExerciseDuration(firstEx.duration);
       speakExerciseStart(firstEx);
     } else if (currentStep === 'active') {
-      // Mark as completed
       if (currentExercise && !completedExerciseIds.includes(currentExercise.id)) {
         setCompletedExerciseIds((prev) => [...prev, currentExercise.id]);
       }
 
-      // Check if more exercises exist
       if (exerciseIndex < routine.exercises.length - 1) {
         setCurrentStep('rest');
-        setTimeLeft(10); // 10 seconds rest
+        setTimeLeft(10);
+        setActiveExerciseDuration(10);
         const nextEx = routine.exercises[exerciseIndex + 1];
         speakText(`Rest time. Next up is ${nextEx.name}.`);
       } else {
-        // Workout complete!
         handleCompletion();
       }
     } else if (currentStep === 'rest') {
-      // Move to next exercise
       const nextIndex = exerciseIndex + 1;
       setExerciseIndex(nextIndex);
       setCurrentStep('active');
       const nextEx = routine.exercises[nextIndex];
       setTimeLeft(nextEx.duration);
+      setActiveExerciseDuration(nextEx.duration);
       speakExerciseStart(nextEx);
     }
   };
@@ -320,26 +989,27 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
       setCurrentStep('active');
       const firstEx = routine.exercises[0];
       setTimeLeft(firstEx.duration);
+      setActiveExerciseDuration(firstEx.duration);
       speakExerciseStart(firstEx);
     } else if (currentStep === 'active') {
-      // Skip active exercise
       if (currentExercise && !completedExerciseIds.includes(currentExercise.id)) {
         setCompletedExerciseIds((prev) => [...prev, currentExercise.id]);
       }
       if (exerciseIndex < routine.exercises.length - 1) {
         setCurrentStep('rest');
         setTimeLeft(10);
+        setActiveExerciseDuration(10);
         speakText(`Skipped. Rest time.`);
       } else {
         handleCompletion();
       }
     } else if (currentStep === 'rest') {
-      // Skip rest break
       const nextIndex = exerciseIndex + 1;
       setExerciseIndex(nextIndex);
       setCurrentStep('active');
       const nextEx = routine.exercises[nextIndex];
       setTimeLeft(nextEx.duration);
+      setActiveExerciseDuration(nextEx.duration);
       speakExerciseStart(nextEx);
     }
   };
@@ -355,17 +1025,33 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
       setCurrentStep('active');
       const prevEx = routine.exercises[prevIndex];
       setTimeLeft(prevEx.duration);
+      setActiveExerciseDuration(prevEx.duration);
       speakExerciseStart(prevEx);
     } else if (currentStep === 'rest') {
       setCurrentStep('active');
       const currentEx = routine.exercises[exerciseIndex];
       setTimeLeft(currentEx.duration);
+      setActiveExerciseDuration(currentEx.duration);
       speakExerciseStart(currentEx);
     } else {
       const currentEx = routine.exercises[exerciseIndex];
       setTimeLeft(currentEx.duration);
+      setActiveExerciseDuration(currentEx.duration);
       speakExerciseStart(currentEx);
     }
+  };
+
+  const adjustTime = (seconds: number) => {
+    setTimeLeft((prev) => {
+      const newTimeLeft = Math.max(1, prev + seconds);
+      if (seconds > 0) {
+        setActiveExerciseDuration((d) => d + seconds);
+      } else {
+        setActiveExerciseDuration((d) => Math.max(newTimeLeft, d + seconds));
+      }
+      return newTimeLeft;
+    });
+    playBeep(880, 0.05);
   };
 
   const togglePause = () => {
@@ -380,7 +1066,6 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
   };
 
   const handleSave = () => {
-    // Estimate calories
     const workoutSecs = routine.exercises
       .filter((ex) => ex.type === 'workout')
       .reduce((sum, ex) => sum + ex.duration, 0);
@@ -390,11 +1075,9 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
 
     const estCalories = Math.round(workoutSecs * 0.15 + stretchSecs * 0.05);
 
-    // XP = 10 XP per minute + 5 XP per completed exercise
     const durationMins = totalSecsCompleted / 60;
     const estXp = Math.round(durationMins * 10 + completedExerciseIds.length * 5);
 
-    // Build log of weights used
     const weightsLog: { [exerciseName: string]: number } = {};
     routine.exercises.forEach((ex) => {
       if (ex.needsWeight && weights[ex.id]) {
@@ -407,50 +1090,14 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
       exercisesCompleted: completedExerciseIds.length,
       caloriesBurned: estCalories,
       xpEarned: estXp || 10,
-      weightsUsed: weightsLog
+      weightsUsed: weightsLog,
+      mood: selectedMood
     });
   };
 
-  // Get active progress percentage
-  const totalDuration = currentStep === 'active' && currentExercise ? currentExercise.duration : 1;
-  const progressPct = currentStep === 'active' ? (timeLeft / totalDuration) : 1;
+  const totalDuration = activeExerciseDuration || 1;
+  const progressPct = timeLeft / totalDuration;
   const strokeDashoffset = 2 * Math.PI * 90 * (1 - progressPct);
-
-  // Dynamic simulated heart rate (BPM)
-  const getSimulatedHeartRate = () => {
-    if (isPaused) return 70;
-    
-    if (currentStep === 'intro' || currentStep === 'setup_weight' || currentStep === 'complete') {
-      return 70;
-    }
-    
-    const totalDurationVal = currentStep === 'active' && currentExercise ? currentExercise.duration : 10;
-    
-    if (currentStep === 'active' && currentExercise) {
-      const isCardio = currentExercise.name.toLowerCase().includes('jack') || 
-                       currentExercise.name.toLowerCase().includes('climber') || 
-                       currentExercise.name.toLowerCase().includes('knee') ||
-                       currentExercise.name.toLowerCase().includes('hiit') ||
-                       currentExercise.name.toLowerCase().includes('squat');
-      const baseBpm = currentExercise.type === 'workout' ? (isCardio ? 110 : 95) : 65;
-      const peakBpm = currentExercise.type === 'workout' ? (isCardio ? 165 : 130) : 75;
-      
-      // Heart rate ramps up over the duration of the exercise
-      const elapsedFraction = (totalDurationVal - timeLeft) / totalDurationVal;
-      return Math.round(baseBpm + (peakBpm - baseBpm) * elapsedFraction);
-    }
-    
-    if (currentStep === 'rest') {
-      // Recovery heart rate goes down from 135 to 82 BPM
-      const elapsedFraction = (10 - timeLeft) / 10;
-      return Math.round(135 - (135 - 82) * elapsedFraction);
-    }
-    
-    return 70;
-  };
-
-  const bpm = getSimulatedHeartRate();
-  const pulseDuration = `${60 / bpm}s`;
 
   // Derived properties for active instruction steps
   const elapsed = Math.max(0, totalDuration - timeLeft);
@@ -942,7 +1589,15 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
               </div>
 
               {/* Player Quick Controls */}
-              <div className="flex items-center space-x-6">
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => adjustTime(-10)}
+                  className="px-3 py-2 text-xs font-bold font-mono rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-850 text-rose-400 hover:text-rose-350 transition-colors cursor-pointer"
+                  title="Shorten 10 seconds"
+                >
+                  -10s
+                </button>
+
                 <button
                   onClick={handleBack}
                   className="p-3.5 rounded-full bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors"
@@ -962,6 +1617,14 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
                   className="p-3.5 rounded-full bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors"
                 >
                   <SkipForward className="w-5 h-5" />
+                </button>
+
+                <button
+                  onClick={() => adjustTime(10)}
+                  className="px-3 py-2 text-xs font-bold font-mono rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-850 text-emerald-400 hover:text-emerald-350 transition-colors cursor-pointer"
+                  title="Extend 10 seconds"
+                >
+                  +10s
                 </button>
               </div>
             </div>
@@ -1134,6 +1797,43 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
               </div>
             )}
 
+            {/* Mood log selector */}
+            <div className="space-y-3 text-left">
+              <span className="text-[10px] text-slate-400 uppercase tracking-widest font-black block">
+                How do you feel right now?
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { value: 'energized', label: 'Energized', emoji: '⚡', color: 'border-amber-500/20 text-amber-400 bg-amber-950/10 hover:bg-amber-950/20' },
+                  { value: 'restored', label: 'Restored', emoji: '🧘', color: 'border-emerald-500/20 text-emerald-400 bg-emerald-950/10 hover:bg-emerald-950/20' },
+                  { value: 'exhausted', label: 'Exhausted', emoji: '🥵', color: 'border-rose-500/20 text-rose-400 bg-rose-950/10 hover:bg-rose-950/20' },
+                  { value: 'tired', label: 'Tired', emoji: '😴', color: 'border-blue-500/20 text-blue-400 bg-blue-950/10 hover:bg-blue-950/20' }
+                ].map((mood) => {
+                  const isSelected = selectedMood === mood.value;
+                  return (
+                    <button
+                      key={mood.value}
+                      type="button"
+                      onClick={() => setSelectedMood(mood.value)}
+                      className={`p-2.5 rounded-xl border flex flex-col items-center justify-center text-center transition-all duration-300 relative cursor-pointer hover:scale-[1.02] ${
+                        isSelected 
+                          ? 'bg-slate-900 border-indigo-500 text-white shadow-[0_0_12px_rgba(99,102,241,0.2)] scale-[1.02]' 
+                          : `${mood.color} opacity-70`
+                      }`}
+                    >
+                      {isSelected && (
+                        <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-indigo-500 rounded-full flex items-center justify-center text-[8px] text-white">
+                          ✓
+                        </span>
+                      )}
+                      <span className="text-xl mb-1">{mood.emoji}</span>
+                      <span className="text-[9px] font-black uppercase tracking-wider">{mood.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="flex flex-col items-center bg-indigo-950/20 border border-indigo-900/30 rounded-xl py-3 px-4">
               <span className="text-xs text-indigo-300 font-bold uppercase tracking-wider">
                 Total Reward Earned
@@ -1175,6 +1875,75 @@ export default function WorkoutPlayer({ routine, profile, onComplete, onClose }:
         <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 z-40 bg-indigo-950/90 border border-indigo-550/40 text-indigo-200 px-5 py-2.5 rounded-2xl text-xs text-center max-w-xs sm:max-w-md shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-300 font-medium leading-relaxed flex items-center space-x-2 border-l-4 border-l-indigo-500">
           <span className="text-amber-400 animate-pulse flex-shrink-0">🎙️ AI Coach:</span>
           <span className="text-left">{coachCaption}</span>
+        </div>
+      )}
+
+      {/* State Protection Resume Modal Overlay */}
+      {showResumePrompt && savedState && (
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="bg-slate-900 border border-indigo-500/30 max-w-md w-full rounded-3xl p-6 sm:p-8 text-center space-y-6 shadow-2xl relative overflow-hidden transform scale-100 transition-all duration-300 animate-in zoom-in-95">
+            <div className="absolute -top-10 -left-10 w-36 h-36 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+            <div className="absolute -bottom-10 -right-10 w-36 h-36 bg-rose-500/10 rounded-full blur-2xl pointer-events-none" />
+
+            <div className="w-14 h-14 rounded-2xl bg-indigo-950/50 border border-indigo-700/50 flex items-center justify-center text-indigo-400 mx-auto mb-2">
+              <Timer className="w-7 h-7 animate-pulse" />
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-xs text-indigo-400 font-extrabold uppercase tracking-widest">Workout Interrupted</span>
+              <h2 className="text-2xl font-black">Resume Your Workout?</h2>
+              <p className="text-slate-400 text-xs leading-relaxed max-w-xs mx-auto">
+                We saved your active place in <strong>{routine.title}</strong> before your session was closed or refreshed.
+              </p>
+            </div>
+
+            <div className="bg-slate-950/60 border border-slate-850 p-4 rounded-2xl text-left text-xs space-y-2">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Exercise:</span>
+                <span className="font-bold text-white">
+                  {routine.exercises[savedState.exerciseIndex]?.name || `Exercise ${savedState.exerciseIndex + 1}`}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Time remaining:</span>
+                <span className="font-mono font-bold text-indigo-400">{savedState.timeLeft} seconds</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Completed so far:</span>
+                <span className="font-bold text-white">{savedState.completedExerciseIds.length} / {routine.exercises.length}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3.5">
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.removeItem('fittrack_active_workout');
+                  setShowResumePrompt(false);
+                }}
+                className="py-3.5 rounded-xl border border-slate-800 hover:bg-slate-850 hover:text-white text-slate-400 font-bold text-xs transition-colors cursor-pointer"
+              >
+                Start Over
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setExerciseIndex(savedState.exerciseIndex);
+                  setTimeLeft(savedState.timeLeft);
+                  setCurrentStep(savedState.currentStep);
+                  setTotalSecsCompleted(savedState.totalSecsCompleted);
+                  setCompletedExerciseIds(savedState.completedExerciseIds);
+                  if (savedState.weights) setWeights(savedState.weights);
+                  if (savedState.activeExerciseDuration) setActiveExerciseDuration(savedState.activeExerciseDuration);
+                  setIsPaused(true); // resume in paused state
+                  setShowResumePrompt(false);
+                }}
+                className="py-3.5 rounded-xl bg-gradient-to-r from-indigo-650 to-violet-650 hover:from-indigo-600 hover:to-violet-600 text-white font-extrabold text-xs transition-all shadow-lg shadow-indigo-950/30 cursor-pointer"
+              >
+                Resume Flow
+              </button>
+            </div>
+          </div>
         </div>
       )}
       </div>

@@ -38,6 +38,9 @@ export default function ProfileView({
   const [weightKg, setWeightKg] = useState(profile.weightKg);
   const [voiceRate, setVoiceRate] = useState(profile.voiceRate ?? 1.05);
   const [voicePitch, setVoicePitch] = useState(profile.voicePitch ?? 1.0);
+  const [soundTheme, setSoundTheme] = useState<'classic' | 'synthwave' | 'retro_8bit' | 'zen'>(profile.soundTheme ?? 'classic');
+  const [coachPersonality, setCoachPersonality] = useState<'standard' | 'yogi' | 'sergeant' | 'cheerleader'>(profile.coachPersonality ?? 'standard');
+  const [restDays, setRestDays] = useState<number[]>(profile.restDays ?? []);
 
   // Level Logic: 500 XP per level
   const xpPerLevel = 500;
@@ -60,7 +63,10 @@ export default function ProfileView({
       dailyStretchesGoal: Math.max(1, dailyStretchesGoal),
       weightKg: Math.max(10, weightKg),
       voiceRate: parseFloat(voiceRate.toString()) || 1.05,
-      voicePitch: parseFloat(voicePitch.toString()) || 1.0
+      voicePitch: parseFloat(voicePitch.toString()) || 1.0,
+      soundTheme,
+      coachPersonality,
+      restDays
     });
     setIsEditing(false);
   };
@@ -261,6 +267,73 @@ export default function ProfileView({
                   />
                 </div>
               </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-600 dark:text-gray-450 uppercase tracking-wider mb-1.5">
+                  Sound Soundtrack Preset
+                </label>
+                <select
+                  value={soundTheme}
+                  onChange={(e) => setSoundTheme(e.target.value as any)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-750 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-all"
+                >
+                  <option value="classic">Classic Beeps & Tones</option>
+                  <option value="synthwave">Retro Synthwave Pulses</option>
+                  <option value="retro_8bit">Game Chiptunes</option>
+                  <option value="zen">Zen Space Alpha Meditation</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-600 dark:text-gray-450 uppercase tracking-wider mb-1.5">
+                  Voice Coach Personality
+                </label>
+                <select
+                  value={coachPersonality}
+                  onChange={(e) => setCoachPersonality(e.target.value as any)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-750 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-all"
+                >
+                  <option value="standard">Standard Coach</option>
+                  <option value="yogi">Serene Yogi Flow</option>
+                  <option value="sergeant">Drill Sergeant High Intensity</option>
+                  <option value="cheerleader">Positive Cheerleader Motivation</option>
+                </select>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-gray-600 dark:text-gray-450 uppercase tracking-wider mb-2">
+                  Streak Rest Days (Auto-Streak Protection)
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((dayName, index) => {
+                    const isRestDay = restDays.includes(index);
+                    const toggleRestDay = () => {
+                      if (isRestDay) {
+                        setRestDays(restDays.filter((d) => d !== index));
+                      } else {
+                        setRestDays([...restDays, index]);
+                      }
+                    };
+                    return (
+                      <button
+                        key={dayName}
+                        type="button"
+                        onClick={toggleRestDay}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                          isRestDay
+                            ? 'bg-indigo-650 border-indigo-600 text-white shadow-sm shadow-indigo-600/20'
+                            : 'border-gray-250 dark:border-gray-700 bg-gray-55 dark:bg-gray-900 text-gray-600 dark:text-gray-300'
+                        }`}
+                      >
+                        {dayName}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1.5 leading-normal">
+                  Your streak will be locked on selected rest days without consuming streak shields.
+                </p>
+              </div>
             </div>
 
             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100 dark:border-gray-755">
@@ -273,6 +346,9 @@ export default function ProfileView({
                   setWeightKg(profile.weightKg);
                   setVoiceRate(profile.voiceRate ?? 1.05);
                   setVoicePitch(profile.voicePitch ?? 1.0);
+                  setSoundTheme(profile.soundTheme ?? 'classic');
+                  setCoachPersonality(profile.coachPersonality ?? 'standard');
+                  setRestDays(profile.restDays ?? []);
                   setIsEditing(false);
                 }}
                 className="px-4 py-2 border border-gray-250 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-900 text-xs font-semibold"
@@ -306,18 +382,42 @@ export default function ProfileView({
               <span className="font-bold text-gray-850 dark:text-white">{profile.dailyStretchesGoal} sessions</span>
             </div>
             <div className="flex justify-between py-2 border-b border-gray-50 dark:border-gray-700/60">
-              <span className="text-gray-400 font-semibold">Voice Speech Rate</span>
+              <span className="text-gray-400 font-semibold">Voice Coach Speed</span>
               <span className="font-bold text-gray-855 dark:text-white">{profile.voiceRate ?? 1.05}x speed</span>
             </div>
             <div className="flex justify-between py-2 border-b border-gray-50 dark:border-gray-700/60">
-              <span className="text-gray-400 font-semibold">Voice Pitch Tone</span>
+              <span className="text-gray-400 font-semibold">Voice Coach Pitch</span>
               <span className="font-bold text-gray-855 dark:text-white">{profile.voicePitch ?? 1.0} pitch</span>
             </div>
             <div className="flex justify-between py-2 border-b border-gray-50 dark:border-gray-700/60">
+              <span className="text-gray-400 font-semibold">Sound Soundtrack</span>
+              <span className="font-bold text-gray-855 dark:text-white capitalize">
+                {profile.soundTheme === 'synthwave' ? 'Retro Synthwave' : 
+                 profile.soundTheme === 'retro_8bit' ? 'Game Chiptunes' : 
+                 profile.soundTheme === 'zen' ? 'Zen Meditation' : 'Classic Beeps & Tones'}
+              </span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-gray-50 dark:border-gray-700/60">
+              <span className="text-gray-400 font-semibold">Coach Voice</span>
+              <span className="font-bold text-gray-855 dark:text-white capitalize">
+                {profile.coachPersonality === 'yogi' ? 'Serene Yogi Flow' : 
+                 profile.coachPersonality === 'sergeant' ? 'Drill Sergeant' : 
+                 profile.coachPersonality === 'cheerleader' ? 'Cheerleader' : 'Standard Coach'}
+              </span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-gray-50 dark:border-gray-700/60 sm:col-span-2">
+              <span className="text-gray-400 font-semibold">Streak Rest Days</span>
+              <span className="font-bold text-gray-855 dark:text-white capitalize">
+                {profile.restDays && profile.restDays.length > 0 
+                  ? profile.restDays.map(d => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d]).join(', ')
+                  : 'No Rest Days Configured'}
+              </span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-gray-50 dark:border-gray-700/60 sm:col-span-2">
               <span className="text-gray-400 font-semibold">Training Location</span>
               <span className="font-bold text-gray-855 dark:text-white capitalize">{profile.location || 'home'}</span>
             </div>
-            <div className="flex justify-between py-2 border-b border-gray-50 dark:border-gray-700/60">
+            <div className="flex justify-between py-2 border-b border-gray-50 dark:border-gray-700/60 sm:col-span-2">
               <span className="text-gray-400 font-semibold">Available Equipment</span>
               <span className="font-bold text-gray-855 dark:text-white capitalize">
                 {profile.equipment && profile.equipment.length > 0 ? profile.equipment.join(', ') : 'Bodyweight Only'}
